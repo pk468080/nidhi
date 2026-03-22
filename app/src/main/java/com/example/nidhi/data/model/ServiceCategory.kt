@@ -6,7 +6,11 @@ enum class ServiceCategory(val displayName: String, val startingPrice: Int) {
     ELECTRICIAN("Electrician", 249),
     CLEANING("Cleaning", 399),
     PAINTING("Painting", 999),
-    CARPENTER("Carpenter", 299);
+    CARPENTER("Carpenter", 299),
+    PEST_CONTROL("Pest Control", 499),
+    APPLIANCE_REPAIR("Appliance Repair", 349),
+    BEAUTY_SERVICES("Beauty Services", 299),
+    TUITION("Tuition / Learning", 499);
 
     companion object {
         fun fromDisplayName(name: String): ServiceCategory? =

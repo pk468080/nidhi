@@ -16,8 +16,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.example.nidhi.data.model.Service
 import com.example.nidhi.navigation.Routes
+import com.example.nidhi.ui.screens.home.allServices
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,17 +26,12 @@ fun SearchScreen(navController: NavController) {
     var query by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
 
-    val allServices = listOf(
-        Service("AC Repair", Icons.Default.AcUnit),
-        Service("Plumber", Icons.Default.Plumbing),
-        Service("Electrician", Icons.Default.ElectricalServices),
-        Service("Cleaning", Icons.Default.CleaningServices),
-        Service("Painting", Icons.Default.FormatPaint),
-        Service("Carpenter", Icons.Default.Handyman)
-    )
-
     val filtered = if (query.isBlank()) allServices
-    else allServices.filter { it.name.contains(query, ignoreCase = true) }
+    else allServices.filter { service ->
+        service.name.contains(query, ignoreCase = true) ||
+            service.category.contains(query, ignoreCase = true) ||
+            service.description.contains(query, ignoreCase = true)
+    }
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
@@ -49,7 +44,7 @@ fun SearchScreen(navController: NavController) {
                     OutlinedTextField(
                         value = query,
                         onValueChange = { query = it },
-                        placeholder = { Text("Search services...") },
+                        placeholder = { Text("Search services…") },
                         singleLine = true,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -81,6 +76,19 @@ fun SearchScreen(navController: NavController) {
             items(filtered) { service ->
                 ListItem(
                     headlineContent = { Text(service.name) },
+                    supportingContent = {
+                        if (service.basePrice > 0) {
+                            Text("From ₹${service.basePrice} · ${service.duration}")
+                        }
+                    },
+                    trailingContent = {
+                        if (service.rating > 0f) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Star, null, tint = Color(0xFFFFC107), modifier = Modifier.size(14.dp))
+                                Text(" ${service.rating}", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    },
                     leadingContent = {
                         Icon(service.icon, contentDescription = service.name)
                     },
