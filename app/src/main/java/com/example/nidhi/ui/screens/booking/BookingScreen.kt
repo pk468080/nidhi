@@ -8,7 +8,14 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.nidhi.data.model.Booking
 import com.example.nidhi.navigation.Routes
+import com.example.nidhi.viewmodel.DEFAULT_PROVIDER_LAT
+import com.example.nidhi.viewmodel.DEFAULT_PROVIDER_LNG
+import com.example.nidhi.viewmodel.DEFAULT_PROVIDER_NAME
+import com.example.nidhi.viewmodel.DEFAULT_PROVIDER_PHONE
+import com.example.nidhi.viewmodel.DEFAULT_PROVIDER_RATING
+import com.example.nidhi.viewmodel.INITIAL_ETA_MINUTES
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.firestore.FirebaseFirestore
 
 @Composable
@@ -23,6 +30,7 @@ fun BookingScreen(
     var message by remember { mutableStateOf("") }
 
     val firestore = FirebaseFirestore.getInstance()
+    val database = FirebaseDatabase.getInstance()
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
 
     Column(
@@ -76,14 +84,32 @@ fun BookingScreen(
                 val booking = Booking(
                     serviceName = serviceName,
                     address = address,
-                    userId = userId
+                    userId = userId,
+                    providerName = DEFAULT_PROVIDER_NAME,
+                    providerPhone = DEFAULT_PROVIDER_PHONE,
+                    providerRating = DEFAULT_PROVIDER_RATING
                 )
 
                 firestore.collection("bookings")
                     .add(booking)
-                    .addOnSuccessListener {
+                    .addOnSuccessListener { docRef ->
 
                         message = "Booking Confirmed!"
+
+                        // Write initial tracking data to Realtime Database so
+                        // TrackingViewModel can begin receiving live updates immediately
+                        val safeServiceName = serviceName.replace(" ", "_")
+                        val trackingRef = database.getReference("tracking/$userId/$safeServiceName")
+                        val initialTracking = mapOf(
+                            "status" to "accepted",
+                            "eta" to INITIAL_ETA_MINUTES,
+                            "providerLat" to DEFAULT_PROVIDER_LAT,
+                            "providerLng" to DEFAULT_PROVIDER_LNG,
+                            "providerName" to DEFAULT_PROVIDER_NAME,
+                            "providerPhone" to DEFAULT_PROVIDER_PHONE,
+                            "providerRating" to DEFAULT_PROVIDER_RATING
+                        )
+                        trackingRef.setValue(initialTracking)
 
                         navController.navigate(
                             Routes.TRACKING + "/$serviceName"
