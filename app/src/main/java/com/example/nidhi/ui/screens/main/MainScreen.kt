@@ -86,13 +86,14 @@ fun MainScreen(rootNavController: NavController) {
                 BookingsScreen(rootNavController) 
             }
 
-            composable(Routes.PROFILE) { 
+            composable(Routes.PROFILE) {
                 ProfileScreen(
                     onLogout = {
                         rootNavController.navigate(Routes.LOGIN) {
                             popUpTo(Routes.HOME) { inclusive = true }
                         }
-                    }
+                    },
+                    navController = rootNavController
                 )
             }
 

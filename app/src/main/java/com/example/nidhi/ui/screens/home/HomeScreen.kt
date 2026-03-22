@@ -130,7 +130,7 @@ fun HomeScreen(navController: NavController) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                navController.navigate("search")
+                                navController.navigate(Routes.SEARCH)
                             },
 
                         placeholder = {

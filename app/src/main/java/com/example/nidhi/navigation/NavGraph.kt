@@ -7,6 +7,9 @@ import com.example.nidhi.ui.screens.auth.RegisterScreen
 import com.example.nidhi.ui.screens.booking.BookingDetailsScreen
 import com.example.nidhi.ui.screens.booking.BookingScreen
 import com.example.nidhi.ui.screens.main.MainScreen
+import com.example.nidhi.ui.screens.payment.PaymentScreen
+import com.example.nidhi.ui.screens.payment.TransactionHistoryScreen
+import com.example.nidhi.ui.screens.services.SearchScreen
 import com.example.nidhi.ui.screens.services.ServiceDetailsScreen
 import com.example.nidhi.ui.screens.splash.SplashScreen
 import com.example.nidhi.ui.screens.tracking.TrackingScreen
@@ -37,49 +40,50 @@ fun NavGraph() {
             MainScreen(navController)
         }
 
+        composable(Routes.SEARCH) {
+            SearchScreen(navController)
+        }
+
         composable(
             route = Routes.SERVICE_DETAILS + "/{serviceName}"
         ) { backStackEntry ->
-
             val serviceName = backStackEntry.arguments?.getString("serviceName") ?: ""
-
-            ServiceDetailsScreen(
-                navController = navController,
-                serviceName = serviceName
-            )
-
+            ServiceDetailsScreen(navController = navController, serviceName = serviceName)
         }
+
         composable(Routes.BOOKING + "/{serviceName}") { backStackEntry ->
-
             val serviceName = backStackEntry.arguments?.getString("serviceName") ?: ""
-
-            BookingScreen(
-                serviceName = serviceName,
-                navController = navController
-            )
-
+            BookingScreen(serviceName = serviceName, navController = navController)
         }
+
         composable(Routes.TRACKING + "/{serviceName}") { backStackEntry ->
-
             val serviceName = backStackEntry.arguments?.getString("serviceName") ?: ""
-
             TrackingScreen(serviceName)
-
         }
+
         composable(
             route = Routes.BOOKING_DETAILS + "/{serviceName}"
         ) { backStackEntry ->
-
-            val serviceName =
-                backStackEntry.arguments?.getString("serviceName") ?: ""
-
-            BookingDetailsScreen(
-                serviceName = serviceName,
-                navController = navController
-            )
-
+            val serviceName = backStackEntry.arguments?.getString("serviceName") ?: ""
+            BookingDetailsScreen(serviceName = serviceName, navController = navController)
         }
 
+        composable(
+            route = Routes.PAYMENT + "/{bookingId}/{serviceName}/{amount}"
+        ) { backStackEntry ->
+            val bookingId = backStackEntry.arguments?.getString("bookingId") ?: ""
+            val serviceName = backStackEntry.arguments?.getString("serviceName") ?: ""
+            val amount = backStackEntry.arguments?.getString("amount")?.toDoubleOrNull() ?: 0.0
+            PaymentScreen(
+                bookingId = bookingId,
+                serviceName = serviceName,
+                amount = amount,
+                navController = navController
+            )
+        }
 
+        composable(Routes.TRANSACTIONS) {
+            TransactionHistoryScreen(navController)
+        }
     }
 }
