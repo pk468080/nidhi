@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "111918879978",
+    "project_id": "nidhi-90a35",
+    "storage_bucket": "nidhi-90a35.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:111918879978:android:ecd296bba48c62e845b393",
+        "android_client_info": {
+          "package_name": "com.example.nidhi"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "111918879978-rt2uiq2nbd4beirtp03o84g2s9oasgp0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.nidhi",
+            "certificate_hash": "d959e3acbd13d8cfb922b75d81dafbcc04310c84"
+          }
+        },
+        {
+          "client_id": "111918879978-elsfl9lbfhfaprbrtitdehfhrt3nc7pg.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBQVTeke2DGdNz4eXK4AQZwpS6JxaG9jvQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "111918879978-elsfl9lbfhfaprbrtitdehfhrt3nc7pg.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
