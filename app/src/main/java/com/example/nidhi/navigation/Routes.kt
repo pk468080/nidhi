@@ -11,4 +11,7 @@ object Routes {
     const val BOOKINGS = "bookings"
     const val PROFILE = "profile"
     const val BOOKING_DETAILS = "booking_details"
+    const val SEARCH = "search"
+    const val PAYMENT = "payment"
+    const val TRANSACTIONS = "transactions"
 }

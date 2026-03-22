@@ -26,7 +26,6 @@ import com.example.nidhi.viewmodel.TrackingViewModel
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.*
 import com.google.maps.android.compose.*
-
 @Composable
 fun TrackingScreen(serviceName: String) {
 
@@ -72,6 +71,11 @@ fun TrackingScreen(serviceName: String) {
                 state = MarkerState(position = providerLocation),
                 title = trackingData.providerName,
                 snippet = "Service Provider"
+            )
+            Polyline(
+                points = listOf(providerLocation, userLocation),
+                color = Color(0xFF1976D2),
+                width = 8f
             )
         }
 
