@@ -46,6 +46,37 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
     }
+
+    // Providers are publicly readable; only the provider themselves can write.
+    match /providers/{providerId} {
+      allow read: if true;
+      allow create, update: if isOwner(providerId);
+      allow delete: if false;
+    }
+
+    // Services are publicly readable; only the owning provider can write.
+    match /services/{serviceId} {
+      allow read: if true;
+      allow create: if isSignedIn() && request.resource.data.providerId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.providerId == request.auth.uid;
+    }
+
+    // Reviews: readable by customer and provider involved; created only by the customer.
+    match /reviews/{reviewId} {
+      allow read: if isSignedIn()
+        && (resource.data.customerId == request.auth.uid
+            || resource.data.providerId == request.auth.uid);
+      allow create: if isSignedIn()
+        && request.resource.data.customerId == request.auth.uid
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5;
+      allow update, delete: if false;
+    }
+
+    // In-app notifications: each user reads and manages their own.
+    match /notifications/{userId}/messages/{notificationId} {
+      allow read, write: if isOwner(userId);
+    }
   }
 }
 

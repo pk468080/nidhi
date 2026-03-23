@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.nidhi.navigation.NavGraph
+import com.example.nidhi.notifications.AppFirebaseMessagingService
 import com.example.nidhi.notifications.PushTokenRegistrar
 import com.example.nidhi.ui.theme.NidhiTheme
 import com.google.firebase.FirebaseApp
@@ -22,9 +23,13 @@ class MainActivity : ComponentActivity() {
         PushTokenRegistrar.registerCurrentTokenIfLoggedIn()
         requestNotificationPermissionIfNeeded()
 
+        val deepLinkBookingId = intent
+            ?.getStringExtra(AppFirebaseMessagingService.EXTRA_BOOKING_ID)
+            ?.takeIf { it.isNotBlank() }
+
         setContent {
             NidhiTheme {
-                NavGraph()
+                NavGraph(deepLinkBookingId = deepLinkBookingId)
             }
         }
     }

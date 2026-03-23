@@ -175,6 +175,26 @@ fun BookingDetailsScreen(
                                 style = MaterialTheme.typography.titleMedium
                             )
                         }
+                    } else if (b.status == BookingStatus.COMPLETED.value) {
+                        Button(
+                            onClick = {
+                                navController.navigate(Routes.REVIEW + "/${b.bookingId}")
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.secondary
+                            )
+                        ) {
+                            Icon(Icons.Default.Star, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Leave a Review",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                        }
                     } else if (b.status == BookingStatus.PENDING.value) {
                         AssistChip(
                             onClick = {},

@@ -1,11 +1,13 @@
 package com.example.nidhi.navigation
 
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.navigation.compose.*
 import com.example.nidhi.ui.screens.auth.LoginScreen
 import com.example.nidhi.ui.screens.auth.RegisterScreen
 import com.example.nidhi.ui.screens.booking.BookingDetailsScreen
 import com.example.nidhi.ui.screens.booking.BookingScreen
+import com.example.nidhi.ui.screens.booking.ReviewScreen
 import com.example.nidhi.ui.screens.debug.FlowChecklistScreen
 import com.example.nidhi.ui.screens.main.MainScreen
 import com.example.nidhi.ui.screens.payment.PaymentScreen
@@ -17,9 +19,15 @@ import com.example.nidhi.ui.screens.splash.SplashScreen
 import com.example.nidhi.ui.screens.tracking.TrackingScreen
 
 @Composable
-fun NavGraph() {
+fun NavGraph(deepLinkBookingId: String? = null) {
 
     val navController = rememberNavController()
+
+    LaunchedEffect(deepLinkBookingId) {
+        if (!deepLinkBookingId.isNullOrBlank()) {
+            navController.navigate(Routes.BOOKING_DETAILS + "/$deepLinkBookingId")
+        }
+    }
 
     NavHost(
         navController = navController,
@@ -94,6 +102,13 @@ fun NavGraph() {
 
         composable(Routes.FLOW_CHECKLIST) {
             FlowChecklistScreen(navController = navController)
+        }
+
+        composable(
+            route = Routes.REVIEW + "/{bookingId}"
+        ) { backStackEntry ->
+            val bookingId = backStackEntry.arguments?.getString("bookingId") ?: ""
+            ReviewScreen(bookingId = bookingId, navController = navController)
         }
     }
 }
