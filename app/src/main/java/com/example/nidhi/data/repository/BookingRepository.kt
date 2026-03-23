@@ -6,6 +6,7 @@ import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.Query
 
 class BookingRepository {
 
@@ -87,5 +88,39 @@ class BookingRepository {
             )
             .addOnSuccessListener { onResult(true) }
             .addOnFailureListener { onResult(false) }
+    }
+
+    fun cancelBooking(bookingId: String, onResult: (Boolean) -> Unit) {
+        firestore.collection("bookings").document(bookingId)
+            .update("status", BookingStatus.CANCELLED.value)
+            .addOnSuccessListener { onResult(true) }
+            .addOnFailureListener { onResult(false) }
+    }
+
+    fun observeProviderBookings(
+        providerId: String,
+        onChanged: (List<Booking>) -> Unit
+    ): ListenerRegistration {
+        return firestore.collection("bookings")
+            .whereEqualTo("providerId", providerId)
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, _ ->
+                val bookings = snapshot?.documents?.mapNotNull {
+                    it.toObject(Booking::class.java)
+                } ?: emptyList()
+                onChanged(bookings)
+            }
+    }
+
+    fun observePendingBookings(onChanged: (List<Booking>) -> Unit): ListenerRegistration {
+        return firestore.collection("bookings")
+            .whereEqualTo("status", BookingStatus.PENDING.value)
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, _ ->
+                val bookings = snapshot?.documents?.mapNotNull {
+                    it.toObject(Booking::class.java)
+                } ?: emptyList()
+                onChanged(bookings)
+            }
     }
 }
