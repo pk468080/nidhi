@@ -14,4 +14,6 @@ object Routes {
     const val SEARCH = "search"
     const val PAYMENT = "payment"
     const val TRANSACTIONS = "transactions"
+    const val PROVIDER_PANEL = "provider_panel"
+    const val FLOW_CHECKLIST = "flow_checklist"
 }

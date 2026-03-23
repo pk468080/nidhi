@@ -42,7 +42,7 @@ fun PaymentScreen(
         when (val result = paymentResult) {
             is PaymentResult.Success -> {
                 viewModel.clearPaymentResult()
-                navController.navigate(Routes.TRACKING + "/$serviceName") {
+                navController.navigate(Routes.BOOKING_DETAILS + "/$bookingId") {
                     popUpTo(Routes.HOME)
                 }
             }

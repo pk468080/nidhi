@@ -84,9 +84,9 @@ private fun BookingListCard(booking: Booking, navController: NavController) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable {
-                navController.navigate(
-                    Routes.BOOKING_DETAILS + "/${booking.serviceName.replace(" ", "_")}"
-                )
+                if (booking.bookingId.isNotBlank()) {
+                    navController.navigate(Routes.BOOKING_DETAILS + "/${booking.bookingId}")
+                }
             },
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)

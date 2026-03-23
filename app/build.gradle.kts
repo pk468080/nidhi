@@ -56,6 +56,7 @@ dependencies {
     implementation(libs.firebase.ai)
     implementation(libs.firebase.database)
     implementation(libs.firebase.firestore.ktx)
+    implementation(libs.firebase.messaging.ktx)
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.googleid)
@@ -70,4 +71,5 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     implementation(libs.google.maps.compose)
     implementation(libs.google.play.services.maps)
+    implementation("com.google.android.gms:play-services-location:21.3.0")
 }

@@ -1,3 +1,19 @@
 <resources>
     <string name="app_name">nidhi</string>
+    <string name="home_location_fetching">Fetching your current location…</string>
+    <string name="home_location_updated">Location set to %1$s</string>
+    <string name="home_location_permission_denied">Location permission denied. Switched to %1$s.</string>
+    <string name="home_location_unavailable">Could not fetch current location. Switched to %1$s.</string>
+    <string name="home_location_fetch_failed">Unable to detect city from your location. Switched to %1$s.</string>
+    <string name="home_location_icon_content_description">Current location</string>
+    <string name="home_location_dropdown_content_description">Select location</string>
+    <string name="booking_service_address_label">Service Address</string>
+    <string name="booking_service_address_placeholder">Enter your full address</string>
+    <string name="booking_use_current_location">Use current location</string>
+    <string name="booking_location_fetching">Fetching your current address…</string>
+    <string name="booking_location_autofilled">Address auto-filled from current location</string>
+    <string name="booking_location_permission_denied">Location permission denied. Enter address manually.</string>
+    <string name="booking_location_unavailable">Current location unavailable. Enter address manually.</string>
+    <string name="booking_location_fetch_failed">Unable to fetch your address. Enter address manually.</string>
+    <string name="booking_location_icon_content_description">Service location</string>
 </resources>

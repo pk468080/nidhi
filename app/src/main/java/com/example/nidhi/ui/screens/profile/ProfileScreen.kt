@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.FactCheck
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -84,6 +86,26 @@ fun ProfileScreen(onLogout: () -> Unit, navController: NavController? = null) {
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Transaction History")
             }
+
+            OutlinedButton(
+                onClick = { navController.navigate(Routes.PROVIDER_PANEL) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.Engineering, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Provider Panel (Temporary)")
+            }
+
+            OutlinedButton(
+                onClick = { navController.navigate(Routes.FLOW_CHECKLIST) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.AutoMirrored.Filled.FactCheck, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Flow Checklist Logs")
+            }
         }
 
         Spacer(modifier = Modifier.weight(1f))
@@ -97,7 +119,7 @@ fun ProfileScreen(onLogout: () -> Unit, navController: NavController? = null) {
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
         ) {
-            Icon(Icons.Default.Logout, contentDescription = null)
+            Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
             Text("Logout")
         }

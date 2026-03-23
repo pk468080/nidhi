@@ -6,9 +6,11 @@ import com.example.nidhi.ui.screens.auth.LoginScreen
 import com.example.nidhi.ui.screens.auth.RegisterScreen
 import com.example.nidhi.ui.screens.booking.BookingDetailsScreen
 import com.example.nidhi.ui.screens.booking.BookingScreen
+import com.example.nidhi.ui.screens.debug.FlowChecklistScreen
 import com.example.nidhi.ui.screens.main.MainScreen
 import com.example.nidhi.ui.screens.payment.PaymentScreen
 import com.example.nidhi.ui.screens.payment.TransactionHistoryScreen
+import com.example.nidhi.ui.screens.provider.ProviderPanelScreen
 import com.example.nidhi.ui.screens.services.SearchScreen
 import com.example.nidhi.ui.screens.services.ServiceDetailsScreen
 import com.example.nidhi.ui.screens.splash.SplashScreen
@@ -56,16 +58,16 @@ fun NavGraph() {
             BookingScreen(serviceName = serviceName, navController = navController)
         }
 
-        composable(Routes.TRACKING + "/{serviceName}") { backStackEntry ->
-            val serviceName = backStackEntry.arguments?.getString("serviceName") ?: ""
-            TrackingScreen(serviceName)
+        composable(Routes.TRACKING + "/{bookingId}") { backStackEntry ->
+            val bookingId = backStackEntry.arguments?.getString("bookingId") ?: ""
+            TrackingScreen(bookingId = bookingId)
         }
 
         composable(
-            route = Routes.BOOKING_DETAILS + "/{serviceName}"
+            route = Routes.BOOKING_DETAILS + "/{bookingId}"
         ) { backStackEntry ->
-            val serviceName = backStackEntry.arguments?.getString("serviceName") ?: ""
-            BookingDetailsScreen(serviceName = serviceName, navController = navController)
+            val bookingId = backStackEntry.arguments?.getString("bookingId") ?: ""
+            BookingDetailsScreen(bookingId = bookingId, navController = navController)
         }
 
         composable(
@@ -84,6 +86,14 @@ fun NavGraph() {
 
         composable(Routes.TRANSACTIONS) {
             TransactionHistoryScreen(navController)
+        }
+
+        composable(Routes.PROVIDER_PANEL) {
+            ProviderPanelScreen(navController = navController)
+        }
+
+        composable(Routes.FLOW_CHECKLIST) {
+            FlowChecklistScreen(navController = navController)
         }
     }
 }

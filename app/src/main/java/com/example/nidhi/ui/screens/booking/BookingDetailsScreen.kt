@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,25 +27,27 @@ import com.google.firebase.firestore.FirebaseFirestore
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookingDetailsScreen(
-    serviceName: String,
+    bookingId: String,
     navController: NavController
 ) {
-    val displayName = serviceName.replace("_", " ")
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     val firestore = FirebaseFirestore.getInstance()
 
     var booking by remember { mutableStateOf<Booking?>(null) }
     var isLoading by remember { mutableStateOf(true) }
 
-    LaunchedEffect(serviceName) {
-        firestore.collection("bookings")
-            .whereEqualTo("userId", userId)
-            .whereEqualTo("serviceName", displayName)
+    LaunchedEffect(bookingId) {
+        if (bookingId.isBlank()) {
+            isLoading = false
+            booking = null
+            return@LaunchedEffect
+        }
+
+        firestore.collection("bookings").document(bookingId)
             .addSnapshotListener { snapshot, _ ->
                 isLoading = false
-                booking = snapshot?.documents
-                    ?.mapNotNull { it.toObject(Booking::class.java) }
-                    ?.maxByOrNull { it.timestamp }
+                val loadedBooking = snapshot?.toObject(Booking::class.java)
+                booking = loadedBooking?.takeIf { it.userId == userId }
             }
     }
 
@@ -104,7 +107,7 @@ fun BookingDetailsScreen(
                         Spacer(modifier = Modifier.width(16.dp))
                         Column {
                             Text(
-                                text = displayName,
+                                text = booking?.serviceName ?: "Booking",
                                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                             )
                             booking?.let { b ->
@@ -144,21 +147,21 @@ fun BookingDetailsScreen(
                         b.paymentStatus.replaceFirstChar { it.uppercase() }
                     )
                     if (b.notes.isNotEmpty()) {
-                        BookingDetailRow(Icons.Default.Notes, "Notes", b.notes)
+                        BookingDetailRow(Icons.AutoMirrored.Filled.Notes, "Notes", b.notes)
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    val isActive = b.status !in listOf(
-                        BookingStatus.CANCELLED.value,
-                        BookingStatus.COMPLETED.value,
-                        BookingStatus.REJECTED.value
+                    val canTrackProvider = b.status in listOf(
+                        BookingStatus.ACCEPTED.value,
+                        BookingStatus.ON_THE_WAY.value,
+                        BookingStatus.ARRIVED.value
                     )
 
-                    if (isActive) {
+                    if (canTrackProvider) {
                         Button(
                             onClick = {
-                                navController.navigate(Routes.TRACKING + "/$serviceName")
+                                navController.navigate(Routes.TRACKING + "/${b.bookingId}")
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -172,6 +175,15 @@ fun BookingDetailsScreen(
                                 style = MaterialTheme.typography.titleMedium
                             )
                         }
+                    } else if (b.status == BookingStatus.PENDING.value) {
+                        AssistChip(
+                            onClick = {},
+                            enabled = false,
+                            label = { Text("Waiting for provider to accept your request") },
+                            leadingIcon = {
+                                Icon(Icons.Default.HourglassEmpty, contentDescription = null)
+                            }
+                        )
                     }
 
                 } ?: run {
@@ -182,7 +194,7 @@ fun BookingDetailsScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "No booking found for $displayName",
+                            text = "No booking found",
                             style = MaterialTheme.typography.bodyLarge,
                             color = Color.Gray
                         )
@@ -195,7 +207,7 @@ fun BookingDetailsScreen(
 
 @Composable
 private fun BookingStatusChip(status: String) {
-    val bookingStatus = BookingStatus.values().find { it.value == status }
+    val bookingStatus = BookingStatus.entries.find { it.value == status }
     val (backgroundColor, contentColor) = when (status) {
         BookingStatus.PENDING.value -> Pair(Color(0xFFFFF8E1), Color(0xFFF57F17))
         BookingStatus.ACCEPTED.value,

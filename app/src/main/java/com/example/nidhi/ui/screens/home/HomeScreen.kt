@@ -1,5 +1,12 @@
 package com.example.nidhi.ui.screens.home
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.location.Address
+import android.location.Geocoder
+import android.location.Location
+import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -8,24 +15,35 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavController
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.nidhi.R
 import com.example.nidhi.data.model.Service
 import com.example.nidhi.navigation.Routes
 import com.example.nidhi.viewmodel.AuthViewModel
+import com.google.android.gms.location.LocationServices
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.launch
+import java.util.Locale
 
 /* ─────────────────────────────────────────────────────────────
    Comprehensive service catalog with pricing
@@ -164,35 +182,122 @@ val promotionalOffers = listOf(
 fun HomeScreen(navController: NavController) {
 
     val viewModel: AuthViewModel = viewModel()
+    val context = LocalContext.current
     val user = FirebaseAuth.getInstance().currentUser
     val userName = user?.displayName?.takeIf { it.isNotBlank() }
         ?: user?.email?.substringBefore("@")
         ?: "User"
 
-    var selectedLocation by remember { mutableStateOf("New Delhi") }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val supportedLocations = remember { listOf("New Delhi", "Mumbai", "Bengaluru", "Hyderabad") }
+    var selectedLocation by rememberSaveable { mutableStateOf(supportedLocations.first()) }
+    var selectedLocationIndex by rememberSaveable {
+        mutableIntStateOf(supportedLocations.indexOf(selectedLocation).coerceAtLeast(0))
+    }
+    var isFetchingCurrentLocation by rememberSaveable { mutableStateOf(false) }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 24.dp)
-    ) {
+    fun fallbackToNextCity(messageResId: Int) {
+        selectedLocationIndex = (selectedLocationIndex + 1) % supportedLocations.size
+        selectedLocation = supportedLocations[selectedLocationIndex]
+        scope.launch {
+            snackbarHostState.showSnackbar(context.getString(messageResId, selectedLocation))
+        }
+    }
+
+    fun fetchCurrentLocation() {
+        if (isFetchingCurrentLocation) return
+
+        isFetchingCurrentLocation = true
+        scope.launch {
+            snackbarHostState.showSnackbar(context.getString(com.example.nidhi.R.string.home_location_fetching))
+        }
+
+        getCurrentCityName(
+            context = context,
+            onSuccess = { detectedCity ->
+                isFetchingCurrentLocation = false
+                selectedLocation = detectedCity
+                selectedLocationIndex = supportedLocations.indexOf(detectedCity).takeIf { it >= 0 } ?: selectedLocationIndex
+                scope.launch {
+                    snackbarHostState.showSnackbar(
+                        context.getString(com.example.nidhi.R.string.home_location_updated, detectedCity)
+                    )
+                }
+            },
+            onFailure = {
+                isFetchingCurrentLocation = false
+                fallbackToNextCity(com.example.nidhi.R.string.home_location_fetch_failed)
+            },
+            onLocationUnavailable = {
+                isFetchingCurrentLocation = false
+                fallbackToNextCity(com.example.nidhi.R.string.home_location_unavailable)
+            }
+        )
+    }
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissionResult ->
+        val granted = permissionResult[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            permissionResult[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+
+        if (granted) {
+            fetchCurrentLocation()
+        } else {
+            fallbackToNextCity(com.example.nidhi.R.string.home_location_permission_denied)
+        }
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            contentPadding = PaddingValues(bottom = 24.dp)
+        ) {
 
         /* ── Hero Banner ── */
         item {
             HeroBanner(
                 userName = userName,
                 location = selectedLocation,
-                onLocationClick = { /* TODO: open location picker */ },
+                isFetchingLocation = isFetchingCurrentLocation,
+                onLocationClick = {
+                    if (hasLocationPermission(context)) {
+                        fetchCurrentLocation()
+                    } else {
+                        locationPermissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            )
+                        )
+                    }
+                },
                 onSearchClick = { navController.navigate(Routes.SEARCH) },
                 onLogout = {
                     viewModel.logout()
-                    navController.navigate(Routes.LOGIN) { popUpTo(0) }
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
+                        launchSingleTop = true
+                    }
                 }
             )
         }
 
         /* ── Quick Action Buttons ── */
         item {
-            QuickActionsRow(navController)
+            QuickActionsRow(
+                navController = navController,
+                onUnavailableClick = { actionName ->
+                    scope.launch {
+                        snackbarHostState.showSnackbar("$actionName will be available soon")
+                    }
+                }
+            )
         }
 
         /* ── Promotional Offers Carousel ── */
@@ -219,6 +324,81 @@ fun HomeScreen(navController: NavController) {
             PopularServiceCard(service = service, navController = navController)
         }
     }
+    }
+}
+
+private fun hasLocationPermission(context: Context): Boolean {
+    val fineLocationGranted = ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.ACCESS_FINE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
+    val coarseLocationGranted = ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.ACCESS_COARSE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
+    return fineLocationGranted || coarseLocationGranted
+}
+
+private fun getCurrentCityName(
+    context: Context,
+    onSuccess: (String) -> Unit,
+    onFailure: () -> Unit,
+    onLocationUnavailable: () -> Unit
+) {
+    val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+    fusedLocationClient.lastLocation
+        .addOnSuccessListener { location ->
+            if (location == null) {
+                onLocationUnavailable()
+                return@addOnSuccessListener
+            }
+
+            resolveCityFromCoordinates(
+                context = context,
+                location = location,
+                onSuccess = onSuccess,
+                onFailure = onFailure
+            )
+        }
+        .addOnFailureListener {
+            onLocationUnavailable()
+        }
+}
+
+private fun resolveCityFromCoordinates(
+    context: Context,
+    location: Location,
+    onSuccess: (String) -> Unit,
+    onFailure: () -> Unit
+) {
+    if (!Geocoder.isPresent()) {
+        onFailure()
+        return
+    }
+
+    val geocoder = Geocoder(context, Locale.getDefault())
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        geocoder.getFromLocation(location.latitude, location.longitude, 1, object : Geocoder.GeocodeListener {
+            override fun onGeocode(addresses: MutableList<Address>) {
+                val city = addresses.firstOrNull()?.toCityName()
+                if (city.isNullOrBlank()) onFailure() else onSuccess(city)
+            }
+
+            override fun onError(errorMessage: String?) {
+                onFailure()
+            }
+        })
+    } else {
+        @Suppress("DEPRECATION")
+        val addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1)
+        val city = addresses?.firstOrNull()?.toCityName()
+        if (city.isNullOrBlank()) onFailure() else onSuccess(city)
+    }
+}
+
+private fun Address.toCityName(): String? {
+    return locality ?: subAdminArea ?: adminArea ?: featureName
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -229,6 +409,7 @@ fun HomeScreen(navController: NavController) {
 fun HeroBanner(
     userName: String,
     location: String,
+    isFetchingLocation: Boolean,
     onLocationClick: () -> Unit,
     onSearchClick: () -> Unit,
     onLogout: () -> Unit
@@ -253,12 +434,12 @@ fun HeroBanner(
             ) {
                 /* Location selector */
                 Row(
-                    modifier = Modifier.clickable(onClick = onLocationClick),
+                    modifier = Modifier.clickable(enabled = !isFetchingLocation, onClick = onLocationClick),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         Icons.Default.LocationOn,
-                        contentDescription = "Location",
+                        contentDescription = stringResource(R.string.home_location_icon_content_description),
                         tint = Color.White,
                         modifier = Modifier.size(18.dp)
                     )
@@ -269,12 +450,22 @@ fun HeroBanner(
                         color = Color.White,
                         fontWeight = FontWeight.SemiBold
                     )
-                    Icon(
-                        Icons.Default.KeyboardArrowDown,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    if (isFetchingLocation) {
+                        Spacer(Modifier.width(8.dp))
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(14.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp,
+                            trackColor = Color.White.copy(alpha = 0.35f)
+                        )
+                    } else {
+                        Icon(
+                            Icons.Default.KeyboardArrowDown,
+                            contentDescription = stringResource(R.string.home_location_dropdown_content_description),
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
 
                 /* Logout button */
@@ -336,7 +527,10 @@ fun HeroBanner(
    Quick Actions Row
    ───────────────────────────────────────────────────────────── */
 @Composable
-fun QuickActionsRow(navController: NavController) {
+fun QuickActionsRow(
+    navController: NavController,
+    onUnavailableClick: (String) -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -353,7 +547,7 @@ fun QuickActionsRow(navController: NavController) {
             icon = Icons.Default.Favorite,
             label = "Favourites",
             containerColor = Color(0xFFE53935)
-        ) { /* TODO: Favourites screen */ }
+        ) { onUnavailableClick("Favourites") }
 
         QuickActionButton(
             icon = Icons.Default.History,
@@ -365,7 +559,7 @@ fun QuickActionsRow(navController: NavController) {
             icon = Icons.Default.Percent,
             label = "Offers",
             containerColor = Color(0xFFFF8F00)
-        ) { /* TODO: Offers screen */ }
+        ) { onUnavailableClick("Offers") }
     }
 }
 

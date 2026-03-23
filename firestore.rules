@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isProvider() {
+      return isSignedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "provider";
+    }
+
+    function isAssignedProvider(providerId) {
+      return isSignedIn() && providerId == request.auth.uid;
+    }
+
+    match /bookings/{bookingId} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read: if isOwner(resource.data.userId) || isAssignedProvider(resource.data.providerId) || isProvider();
+
+      // Customer can only update their own address/notes/schedule while booking is still pending.
+      allow update: if isOwner(resource.data.userId)
+        && resource.data.status == "pending"
+        && request.resource.data.providerId == resource.data.providerId;
+
+      // Provider-side lifecycle updates.
+      allow update: if isProvider() || isAssignedProvider(resource.data.providerId);
+    }
+
+    match /payments/{paymentId} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isProvider());
+      allow update, delete: if false;
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isProvider();
+      allow create, update: if isOwner(userId);
+
+      match /devices/{tokenId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+  }
+}
+

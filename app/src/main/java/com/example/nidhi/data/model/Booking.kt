@@ -6,6 +6,7 @@ data class Booking(
     val address: String = "",
     val userId: String = "",
     val status: String = BookingStatus.PENDING.value,
+    val providerId: String = "",
     val providerName: String = "",
     val providerPhone: String = "",
     val providerRating: Double = 0.0,
