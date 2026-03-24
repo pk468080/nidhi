@@ -6,7 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -14,12 +13,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.nidhi.navigation.Routes
 import com.example.nidhi.ui.screens.home.allServices
+import com.example.nidhi.ui.theme.AppSpacing
+import com.example.nidhi.ui.theme.Success
+import com.example.nidhi.ui.theme.Warning
 
 data class PricingPackage(
     val name: String,
@@ -187,14 +187,14 @@ fun ServiceDetailsScreen(serviceName: String, navController: NavController) {
                         Icon(
                             if (isFavourite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                             contentDescription = "Favourite",
-                            tint = if (isFavourite) Color.Red else LocalContentColor.current
+                            tint = if (isFavourite) MaterialTheme.colorScheme.error else LocalContentColor.current
                         )
                     }
                 }
             )
         },
         bottomBar = {
-            Surface(shadowElevation = 8.dp) {
+            Surface(shadowElevation = AppSpacing.small) {
                 Button(
                     onClick = {
                         navController.navigate(
@@ -203,11 +203,11 @@ fun ServiceDetailsScreen(serviceName: String, navController: NavController) {
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    shape = RoundedCornerShape(12.dp)
+                        .padding(AppSpacing.default),
+                    shape = MaterialTheme.shapes.medium
                 ) {
                     Icon(Icons.Default.BookOnline, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(AppSpacing.small))
                     Text("Book Now — ₹${packages[selectedPackageIndex].price}", style = MaterialTheme.typography.titleMedium)
                 }
             }
@@ -218,7 +218,7 @@ fun ServiceDetailsScreen(serviceName: String, navController: NavController) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(bottom = 16.dp)
+            contentPadding = PaddingValues(bottom = AppSpacing.default)
         ) {
 
             /* ── Service summary ── */
@@ -279,9 +279,8 @@ fun ServiceDetailsScreen(serviceName: String, navController: NavController) {
 private fun SectionHeading(text: String) {
     Text(
         text = text,
-        style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+        modifier = Modifier.padding(horizontal = AppSpacing.default, vertical = AppSpacing.medium)
     )
 }
 
@@ -297,26 +296,26 @@ private fun ServiceSummaryHeader(
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f))
-            .padding(16.dp)
+            .padding(AppSpacing.default)
     ) {
-        Text(name, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
+        Text(name, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold))
+        Spacer(Modifier.height(AppSpacing.small))
         Text(description, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f))
-        Spacer(Modifier.height(12.dp))
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Spacer(Modifier.height(AppSpacing.medium))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AppSpacing.default)) {
             if (rating > 0f) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Star, null, tint = Color(0xFFFFC107), modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("$rating", fontWeight = FontWeight.SemiBold)
-                    if (reviewCount > 0) Text(" ($reviewCount reviews)", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    Icon(Icons.Default.Star, null, tint = Warning, modifier = Modifier.size(AppSpacing.medium + AppSpacing.extraSmall + AppSpacing.extraSmall))
+                    Spacer(Modifier.width(AppSpacing.extraSmall))
+                    Text("$rating", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
+                    if (reviewCount > 0) Text(" ($reviewCount reviews)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             if (duration.isNotBlank()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Schedule, null, modifier = Modifier.size(16.dp), tint = Color.Gray)
-                    Spacer(Modifier.width(4.dp))
-                    Text(duration, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    Icon(Icons.Default.Schedule, null, modifier = Modifier.size(AppSpacing.default), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(AppSpacing.extraSmall))
+                    Text(duration, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -332,39 +331,39 @@ private fun PricingPackagesRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+            .padding(horizontal = AppSpacing.default),
+        horizontalArrangement = Arrangement.spacedBy(AppSpacing.medium - AppSpacing.extraSmall)
     ) {
         packages.forEachIndexed { idx, pkg ->
             val isSelected = idx == selectedIndex
             val accentColor = when (pkg.name) {
-                "Basic" -> Color(0xFF43A047)
-                "Standard" -> Color(0xFF1565C0)
-                else -> Color(0xFF6A1B9A)
+                "Basic" -> Success
+                "Standard" -> MaterialTheme.colorScheme.primary
+                else -> MaterialTheme.colorScheme.tertiary
             }
             Card(
                 modifier = Modifier
                     .weight(1f)
                     .clickable { onSelect(idx) }
                     .border(
-                        width = if (isSelected) 2.dp else 1.dp,
-                        color = if (isSelected) accentColor else Color.LightGray,
-                        shape = RoundedCornerShape(12.dp)
+                        width = if (isSelected) AppSpacing.extraSmall / 2 else AppSpacing.extraSmall / 4,
+                        color = if (isSelected) accentColor else MaterialTheme.colorScheme.outline,
+                        shape = MaterialTheme.shapes.medium
                     ),
-                shape = RoundedCornerShape(12.dp),
+                shape = MaterialTheme.shapes.medium,
                 colors = CardDefaults.cardColors(
                     containerColor = if (isSelected) accentColor.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surface
                 ),
-                elevation = CardDefaults.cardElevation(if (isSelected) 4.dp else 1.dp)
+                elevation = CardDefaults.cardElevation(if (isSelected) AppSpacing.extraSmall else AppSpacing.extraSmall / 4)
             ) {
                 Column(
-                    modifier = Modifier.padding(12.dp),
+                    modifier = Modifier.padding(AppSpacing.medium),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(pkg.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = accentColor)
-                    Spacer(Modifier.height(4.dp))
-                    Text("₹${pkg.price}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
-                    Text(pkg.duration, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                    Text(pkg.name, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = accentColor)
+                    Spacer(Modifier.height(AppSpacing.extraSmall))
+                    Text("₹${pkg.price}", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold))
+                    Text(pkg.duration, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -376,20 +375,20 @@ private fun PackageFeaturesCard(pkg: PricingPackage) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(2.dp)
+            .padding(horizontal = AppSpacing.default, vertical = AppSpacing.small),
+        shape = MaterialTheme.shapes.medium,
+        elevation = CardDefaults.cardElevation(AppSpacing.extraSmall / 2)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text("What's Included — ${pkg.name}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(10.dp))
+        Column(modifier = Modifier.padding(AppSpacing.default)) {
+            Text("What's Included — ${pkg.name}", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
+            Spacer(Modifier.height(AppSpacing.medium - AppSpacing.extraSmall))
             pkg.features.forEach { feature ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF43A047), modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
+                    Icon(Icons.Default.CheckCircle, null, tint = Success, modifier = Modifier.size(AppSpacing.medium + AppSpacing.extraSmall + AppSpacing.extraSmall))
+                    Spacer(Modifier.width(AppSpacing.small))
                     Text(feature, style = MaterialTheme.typography.bodyMedium)
                 }
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(AppSpacing.extraSmall + AppSpacing.extraSmall))
             }
         }
     }
@@ -400,17 +399,17 @@ private fun PricingTransparencyNote() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
-            .background(Color(0xFFFFF8E1), RoundedCornerShape(10.dp))
-            .padding(12.dp),
+            .padding(horizontal = AppSpacing.default, vertical = AppSpacing.extraSmall)
+            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f), MaterialTheme.shapes.small)
+            .padding(AppSpacing.medium),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(Icons.Default.Info, null, tint = Color(0xFFF9A825), modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(8.dp))
+        Icon(Icons.Default.Info, null, tint = Warning, modifier = Modifier.size(AppSpacing.large))
+        Spacer(Modifier.width(AppSpacing.small))
         Text(
             text = "Transparent pricing — no hidden charges. Estimated total shown before booking.",
             style = MaterialTheme.typography.bodySmall,
-            color = Color(0xFF5D4037)
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }
@@ -420,31 +419,31 @@ private fun ProviderCard(provider: ProviderInfo) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 5.dp),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(2.dp)
+            .padding(horizontal = AppSpacing.default, vertical = AppSpacing.extraSmall + AppSpacing.extraSmall / 2),
+        shape = MaterialTheme.shapes.medium,
+        elevation = CardDefaults.cardElevation(AppSpacing.extraSmall / 2)
     ) {
         Row(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(AppSpacing.medium + AppSpacing.extraSmall),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
-                    .background(Color(0xFFE3F2FD), CircleShape),
+                    .size(AppSpacing.xxxLarge)
+                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Person, null, tint = Color(0xFF1565C0), modifier = Modifier.size(28.dp))
+                Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(AppSpacing.extraLarge + AppSpacing.extraSmall))
             }
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(AppSpacing.medium + AppSpacing.extraSmall))
             Column(modifier = Modifier.weight(1f)) {
-                Text(provider.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                Text("${provider.experience} experience · ${provider.completedJobs} jobs", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                Text(provider.name, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
+                Text("${provider.experience} experience · ${provider.completedJobs} jobs", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Star, null, tint = Color(0xFFFFC107), modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(3.dp))
-                Text("${provider.rating}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                Icon(Icons.Default.Star, null, tint = Warning, modifier = Modifier.size(AppSpacing.default))
+                Spacer(Modifier.width(AppSpacing.extraSmall - AppSpacing.extraSmall / 4))
+                Text("${provider.rating}", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
             }
         }
     }
@@ -455,30 +454,30 @@ private fun ReviewCard(review: ReviewInfo) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 5.dp),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(1.dp)
+            .padding(horizontal = AppSpacing.default, vertical = AppSpacing.extraSmall + AppSpacing.extraSmall / 2),
+        shape = MaterialTheme.shapes.medium,
+        elevation = CardDefaults.cardElevation(AppSpacing.extraSmall / 4)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(modifier = Modifier.padding(AppSpacing.medium + AppSpacing.extraSmall)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(review.author, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.width(8.dp))
+                Text(review.author, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
+                Spacer(Modifier.width(AppSpacing.small))
                 /* Show filled stars for whole portion + half star for .5+ fraction */
                 val fullStars = review.rating.toInt()
                 val hasHalfStar = (review.rating - fullStars) >= 0.5f
                 val emptyStars = 5 - fullStars - if (hasHalfStar) 1 else 0
                 repeat(fullStars) {
-                    Icon(Icons.Default.Star, null, tint = Color(0xFFFFC107), modifier = Modifier.size(14.dp))
+                    Icon(Icons.Default.Star, null, tint = Warning, modifier = Modifier.size(AppSpacing.medium + AppSpacing.extraSmall))
                 }
                 if (hasHalfStar) {
-                    Icon(Icons.Default.StarHalf, null, tint = Color(0xFFFFC107), modifier = Modifier.size(14.dp))
+                    Icon(Icons.Default.StarHalf, null, tint = Warning, modifier = Modifier.size(AppSpacing.medium + AppSpacing.extraSmall))
                 }
                 repeat(emptyStars) {
-                    Icon(Icons.Default.StarOutline, null, tint = Color(0xFFFFC107), modifier = Modifier.size(14.dp))
+                    Icon(Icons.Default.StarOutline, null, tint = Warning, modifier = Modifier.size(AppSpacing.medium + AppSpacing.extraSmall))
                 }
             }
-            Spacer(Modifier.height(6.dp))
-            Text(review.comment, style = MaterialTheme.typography.bodyMedium, color = Color.DarkGray)
+            Spacer(Modifier.height(AppSpacing.extraSmall + AppSpacing.extraSmall))
+            Text(review.comment, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

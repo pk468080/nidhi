@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
@@ -31,12 +30,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.nidhi.data.model.Booking
 import com.example.nidhi.data.model.BookingStatus
+import com.example.nidhi.ui.theme.AppSpacing
+import com.example.nidhi.ui.theme.Success
+import com.example.nidhi.ui.theme.Warning
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.DataSnapshot
@@ -99,11 +99,11 @@ fun FlowChecklistScreen(navController: NavController) {
                     val eta = snapshot.child("eta").getValue(Long::class.java)?.toInt()
                     val providerLat = snapshot.child("providerLat").getValue(Double::class.java)
                     val providerLng = snapshot.child("providerLng").getValue(Double::class.java)
-                    
+
                     if (!status.isNullOrBlank()) {
                         logs.add(logLine("Tracking status -> $status${eta?.let { " | ETA: ${it}m" } ?: ""}"))
                     }
-                    
+
                     if (providerLat != null && providerLng != null && !providerLat.isNaN() && !providerLng.isNaN()) {
                         logs.add(logLine("Provider location -> Lat: ${String.format(Locale.getDefault(), "%.4f", providerLat)}, Lng: ${String.format(Locale.getDefault(), "%.4f", providerLng)}"))
                     }
@@ -137,15 +137,18 @@ fun FlowChecklistScreen(navController: NavController) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(AppSpacing.default),
+            verticalArrangement = Arrangement.spacedBy(AppSpacing.medium)
         ) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                shape = MaterialTheme.shapes.medium,
+                elevation = CardDefaults.cardElevation(defaultElevation = AppSpacing.extraSmall)
             ) {
-                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(
+                    modifier = Modifier.padding(AppSpacing.medium),
+                    verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
+                ) {
                     Text(
                         text = "End-to-End Verification",
                         style = MaterialTheme.typography.titleMedium,
@@ -154,7 +157,7 @@ fun FlowChecklistScreen(navController: NavController) {
                     Text(
                         text = "Booking: ${latestBooking?.bookingId?.take(12) ?: "Not created yet"}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     HorizontalDivider()
                     ChecklistRow("1. Booking created", latestBooking != null)
@@ -192,14 +195,21 @@ fun FlowChecklistScreen(navController: NavController) {
             )
 
             if (logs.isEmpty()) {
-                Text("No events yet. Create and progress a booking to see logs.", color = Color.Gray)
+                Text(
+                    "No events yet. Create and progress a booking to see logs.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
                     items(logs.takeLast(30).reversed()) { line ->
-                        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.small
+                        ) {
                             Text(
                                 text = line,
-                                modifier = Modifier.padding(10.dp),
+                                modifier = Modifier.padding(AppSpacing.small),
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
@@ -207,11 +217,11 @@ fun FlowChecklistScreen(navController: NavController) {
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(AppSpacing.extraSmall))
             Text(
                 text = "Use this temporary debug screen to validate: booking -> accepted -> on_the_way -> arrived.",
                 style = MaterialTheme.typography.labelSmall,
-                color = Color.Gray
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -221,7 +231,11 @@ fun FlowChecklistScreen(navController: NavController) {
 private fun ChecklistRow(label: String, done: Boolean) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, style = MaterialTheme.typography.bodyMedium)
-        Text(if (done) "DONE" else "PENDING", color = if (done) Color(0xFF2E7D32) else Color(0xFFF57F17))
+        Text(
+            if (done) "DONE" else "PENDING",
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (done) Success else Warning
+        )
     }
 }
 
@@ -229,4 +243,3 @@ private fun logLine(message: String): String {
     val ts = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
     return "[$ts] $message"
 }
-

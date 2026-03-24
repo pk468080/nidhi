@@ -6,7 +6,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -14,14 +13,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.nidhi.navigation.Routes
+import com.example.nidhi.ui.theme.AppSpacing
 import com.example.nidhi.viewmodel.AuthViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
@@ -111,16 +109,13 @@ fun LoginScreen(navController: NavController) {
                 .background(
                     Brush.linearGradient(
                         listOf(
-                            Color(0xFF1976D2),
-                            Color(0xFF42A5F5)
+                            MaterialTheme.colorScheme.primary,
+                            MaterialTheme.colorScheme.tertiary
                         )
                     ),
-                    shape = RoundedCornerShape(
-                        bottomStart = 24.dp,
-                        bottomEnd = 24.dp
-                    )
+                    shape = MaterialTheme.shapes.extraLarge
                 )
-                .padding(top = 60.dp, bottom = 60.dp),
+                .padding(top = AppSpacing.xxxLarge, bottom = AppSpacing.xxxLarge),
 
             contentAlignment = Alignment.Center
 
@@ -131,21 +126,22 @@ fun LoginScreen(navController: NavController) {
                 Icon(
                     Icons.Default.HomeRepairService,
                     contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(60.dp)
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(AppSpacing.xxxLarge + AppSpacing.medium)
                 )
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(AppSpacing.small))
 
                 Text(
                     "Nidhi Services",
                     style = MaterialTheme.typography.headlineSmall,
-                    color = Color.White
+                    color = MaterialTheme.colorScheme.onPrimary
                 )
 
                 Text(
                     "Your trusted home services partner",
-                    color = Color.White
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimary
                 )
 
             }
@@ -158,24 +154,29 @@ fun LoginScreen(navController: NavController) {
 
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
+                .padding(AppSpacing.large),
 
-            shape = RoundedCornerShape(20.dp),
+            shape = MaterialTheme.shapes.large,
 
-            elevation = CardDefaults.cardElevation(6.dp)
+            elevation = CardDefaults.cardElevation(AppSpacing.extraSmall + AppSpacing.extraSmall),
+
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
 
         ) {
 
             Column(
-                modifier = Modifier.padding(20.dp)
+                modifier = Modifier.padding(AppSpacing.large)
             ) {
 
                 Text(
                     "Welcome Back",
-                    style = MaterialTheme.typography.titleLarge
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(AppSpacing.large))
 
                 /* Login Method */
 
@@ -186,24 +187,24 @@ fun LoginScreen(navController: NavController) {
                         onClick = { loginMethod = "email" }
                     ) {
                         Icon(Icons.Default.Email, null)
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(AppSpacing.extraSmall + AppSpacing.extraSmall))
                         Text("Email")
                     }
 
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(AppSpacing.small))
 
                     OutlinedButton(
                         modifier = Modifier.weight(1f),
                         onClick = { loginMethod = "phone" }
                     ) {
                         Icon(Icons.Default.Phone, null)
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(AppSpacing.extraSmall + AppSpacing.extraSmall))
                         Text("Phone")
                     }
 
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(AppSpacing.default))
 
                 /* Email or Phone */
 
@@ -233,7 +234,7 @@ fun LoginScreen(navController: NavController) {
 
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(AppSpacing.medium))
 
                 /* Password */
 
@@ -269,7 +270,7 @@ fun LoginScreen(navController: NavController) {
 
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(AppSpacing.large))
 
                 /* Login Button */
 
@@ -319,11 +320,11 @@ fun LoginScreen(navController: NavController) {
 
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(AppSpacing.large))
 
                 HorizontalDivider()
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(AppSpacing.large))
 
                 /* Google Login */
 
@@ -341,13 +342,13 @@ fun LoginScreen(navController: NavController) {
 
                     Icon(Icons.Default.AccountCircle, null)
 
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(AppSpacing.small))
 
                     Text("Continue with Google")
 
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(AppSpacing.medium))
 
                 TextButton(
 
@@ -367,10 +368,11 @@ fun LoginScreen(navController: NavController) {
 
                 if (error.isNotEmpty()) {
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(AppSpacing.small))
 
                     Text(
                         error,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error
                     )
 

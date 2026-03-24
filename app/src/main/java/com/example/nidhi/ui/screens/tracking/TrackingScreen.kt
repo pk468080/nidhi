@@ -12,7 +12,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Star
@@ -20,13 +19,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.nidhi.data.model.BookingStatus
+import com.example.nidhi.ui.theme.AppSpacing
+import com.example.nidhi.ui.theme.Info
+import com.example.nidhi.ui.theme.Success
+import com.example.nidhi.ui.theme.Warning
+import com.example.nidhi.ui.theme.Orange400
 import com.example.nidhi.viewmodel.DEFAULT_PROVIDER_LAT
 import com.example.nidhi.viewmodel.DEFAULT_PROVIDER_LNG
 import com.example.nidhi.viewmodel.TrackingViewModel
@@ -152,7 +154,7 @@ fun TrackingScreen(bookingId: String) {
                 )
                 Polyline(
                     points = listOf(providerLocation, userLocation),
-                    color = Color(0xFF1976D2),
+                    color = Info,
                     width = 8f
                 )
             }
@@ -163,25 +165,25 @@ fun TrackingScreen(bookingId: String) {
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 16.dp),
-            shape = RoundedCornerShape(24.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+                .padding(horizontal = AppSpacing.medium, vertical = AppSpacing.default),
+            shape = MaterialTheme.shapes.extraLarge,
+            elevation = CardDefaults.cardElevation(defaultElevation = AppSpacing.large)
         ) {
             Column(
-                modifier = Modifier.padding(20.dp)
+                modifier = Modifier.padding(AppSpacing.large)
             ) {
 
                 // Status chip
                 TrackingStatusChip(status = trackingData.status)
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(AppSpacing.default))
 
                 // ETA
                 if (trackingData.status == BookingStatus.PENDING.value) {
                     Text(
                         text = "Waiting for provider acceptance",
                         style = MaterialTheme.typography.titleMedium,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 } else {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -196,20 +198,20 @@ fun TrackingScreen(bookingId: String) {
                                 color = MaterialTheme.colorScheme.primary
                             )
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(AppSpacing.small))
                         Text(
                             text = "away",
                             style = MaterialTheme.typography.titleMedium,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(AppSpacing.default))
 
                 HorizontalDivider()
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(AppSpacing.default))
 
                 // Provider info row
                 Row(
@@ -220,7 +222,7 @@ fun TrackingScreen(bookingId: String) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
-                                .size(48.dp)
+                                .size(AppSpacing.xxxLarge)
                                 .background(
                                     color = MaterialTheme.colorScheme.primaryContainer,
                                     shape = CircleShape
@@ -233,7 +235,7 @@ fun TrackingScreen(bookingId: String) {
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                         }
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(AppSpacing.medium))
                         Column {
                             Text(
                                 text = trackingData.providerName,
@@ -243,10 +245,10 @@ fun TrackingScreen(bookingId: String) {
                                 Icon(
                                     Icons.Default.Star,
                                     contentDescription = null,
-                                    tint = Color(0xFFFFC107),
-                                    modifier = Modifier.size(14.dp)
+                                    tint = Warning,
+                                    modifier = Modifier.size(AppSpacing.default)
                                 )
-                                Spacer(modifier = Modifier.width(2.dp))
+                                Spacer(modifier = Modifier.width(AppSpacing.extraSmall))
                                 Text(
                                     text = "${trackingData.providerRating}",
                                     style = MaterialTheme.typography.bodySmall
@@ -264,12 +266,12 @@ fun TrackingScreen(bookingId: String) {
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(AppSpacing.small))
 
                 Text(
                     text = "Service: ${trackingData.serviceName.ifBlank { "Assigned service" }}",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -292,21 +294,21 @@ private fun hasLocationPermission(context: Context): Boolean {
 @Composable
 private fun TrackingStatusChip(status: String) {
     val (label, backgroundColor, contentColor) = when (status) {
-        "pending" -> Triple("⏳  Waiting for Provider", Color(0xFFFFF8E1), Color(0xFFF57F17))
-        "accepted" -> Triple("✓  Booking Accepted", Color(0xFFE3F2FD), Color(0xFF1565C0))
-        "on_the_way" -> Triple("🚗  Provider On the Way", Color(0xFFFFF3E0), Color(0xFFE65100))
-        "arrived" -> Triple("📍  Provider Arrived", Color(0xFFE8F5E9), Color(0xFF2E7D32))
-        "completed" -> Triple("✅  Service Completed", Color(0xFFE8F5E9), Color(0xFF2E7D32))
-        else -> Triple(status, Color(0xFFF5F5F5), Color.DarkGray)
+        "pending" -> Triple("⏳  Waiting for Provider", Warning.copy(alpha = 0.1f), Warning)
+        "accepted" -> Triple("✓  Booking Accepted", Info.copy(alpha = 0.1f), Info)
+        "on_the_way" -> Triple("🚗  Provider On the Way", Orange400.copy(alpha = 0.1f), Orange400)
+        "arrived" -> Triple("📍  Provider Arrived", Success.copy(alpha = 0.1f), Success)
+        "completed" -> Triple("✅  Service Completed", Success.copy(alpha = 0.1f), Success)
+        else -> Triple(status, MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.onSurfaceVariant)
     }
 
     Surface(
         color = backgroundColor,
-        shape = RoundedCornerShape(20.dp)
+        shape = MaterialTheme.shapes.large
     ) {
         Text(
             text = label,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = AppSpacing.medium, vertical = AppSpacing.small),
             color = contentColor,
             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
         )

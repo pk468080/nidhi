@@ -14,7 +14,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
@@ -31,7 +30,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavController
@@ -39,6 +37,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.nidhi.R
 import com.example.nidhi.data.model.Service
 import com.example.nidhi.navigation.Routes
+import com.example.nidhi.ui.theme.AppSpacing
+import com.example.nidhi.ui.theme.Warning
 import com.example.nidhi.viewmodel.AuthViewModel
 import com.google.android.gms.location.LocationServices
 import com.google.firebase.auth.FirebaseAuth
@@ -256,7 +256,7 @@ fun HomeScreen(navController: NavController) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(bottom = 24.dp)
+            contentPadding = PaddingValues(bottom = AppSpacing.extraLarge)
         ) {
 
         /* ── Hero Banner ── */
@@ -422,8 +422,8 @@ fun HeroBanner(
                     listOf(Color(0xFF1565C0), Color(0xFF42A5F5))
                 )
             )
-            .padding(horizontal = 20.dp)
-            .padding(top = 48.dp, bottom = 28.dp)
+            .padding(horizontal = AppSpacing.large)
+            .padding(top = AppSpacing.xxxLarge, bottom = AppSpacing.extraLarge)
     ) {
         Column {
             /* Top row: location + logout */
@@ -440,70 +440,73 @@ fun HeroBanner(
                     Icon(
                         Icons.Default.LocationOn,
                         contentDescription = stringResource(R.string.home_location_icon_content_description),
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(AppSpacing.medium + AppSpacing.extraSmall)
                     )
-                    Spacer(Modifier.width(4.dp))
+                    Spacer(Modifier.width(AppSpacing.extraSmall))
                     Text(
                         text = location,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         fontWeight = FontWeight.SemiBold
                     )
                     if (isFetchingLocation) {
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(AppSpacing.small))
                         CircularProgressIndicator(
-                            modifier = Modifier.size(14.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp,
-                            trackColor = Color.White.copy(alpha = 0.35f)
+                            modifier = Modifier.size(AppSpacing.medium + AppSpacing.extraSmall / 2),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = AppSpacing.extraSmall / 2,
+                            trackColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.35f)
                         )
                     } else {
                         Icon(
                             Icons.Default.KeyboardArrowDown,
                             contentDescription = stringResource(R.string.home_location_dropdown_content_description),
-                            tint = Color.White,
-                            modifier = Modifier.size(18.dp)
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(AppSpacing.medium + AppSpacing.extraSmall)
                         )
                     }
                 }
 
                 /* Logout button */
                 TextButton(onClick = onLogout) {
-                    Text("Logout", color = Color.White.copy(alpha = 0.8f))
+                    Text(
+                        "Logout",
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                    )
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(AppSpacing.default))
 
             /* Greeting */
             Text(
                 text = "Hello, $userName 👋",
                 style = MaterialTheme.typography.headlineSmall,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onPrimary,
                 fontWeight = FontWeight.Bold
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(AppSpacing.extraSmall))
             Text(
                 text = "What service do you need today?",
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.85f)
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
             )
 
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(AppSpacing.medium + AppSpacing.extraSmall))
 
             /* Search bar */
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(onClick = onSearchClick),
-                shape = RoundedCornerShape(28.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .padding(horizontal = AppSpacing.default, vertical = AppSpacing.medium),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
@@ -511,11 +514,11 @@ fun HeroBanner(
                         contentDescription = "Search",
                         tint = Color(0xFF1565C0)
                     )
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(AppSpacing.medium))
                     Text(
                         text = "Search for services…",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -534,7 +537,7 @@ fun QuickActionsRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = AppSpacing.default, vertical = AppSpacing.medium),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
         QuickActionButton(
@@ -576,14 +579,23 @@ fun QuickActionButton(
     ) {
         Box(
             modifier = Modifier
-                .size(52.dp)
+                .size(AppSpacing.xxxLarge + AppSpacing.extraSmall)
                 .background(containerColor.copy(alpha = 0.12f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(icon, contentDescription = label, tint = containerColor, modifier = Modifier.size(26.dp))
+            Icon(
+                icon,
+                contentDescription = label,
+                tint = containerColor,
+                modifier = Modifier.size(AppSpacing.extraLarge + AppSpacing.extraSmall / 2)
+            )
         }
-        Spacer(Modifier.height(6.dp))
-        Text(label, style = MaterialTheme.typography.labelSmall, color = Color.DarkGray)
+        Spacer(Modifier.height(AppSpacing.extraSmall + AppSpacing.extraSmall / 2))
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -595,8 +607,14 @@ fun SectionTitle(title: String) {
     Text(
         text = title,
         style = MaterialTheme.typography.titleLarge,
+        color = MaterialTheme.colorScheme.onSurface,
         fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 4.dp)
+        modifier = Modifier.padding(
+            start = AppSpacing.default,
+            end = AppSpacing.default,
+            top = AppSpacing.large,
+            bottom = AppSpacing.extraSmall
+        )
     )
 }
 
@@ -606,8 +624,8 @@ fun SectionTitle(title: String) {
 @Composable
 fun OffersCarousel() {
     LazyRow(
-        contentPadding = PaddingValues(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        contentPadding = PaddingValues(horizontal = AppSpacing.default),
+        horizontalArrangement = Arrangement.spacedBy(AppSpacing.medium)
     ) {
         items(promotionalOffers) { offer ->
             OfferBannerCard(offer)
@@ -619,25 +637,25 @@ fun OffersCarousel() {
 fun OfferBannerCard(offer: Offer) {
     Box(
         modifier = Modifier
-            .width(280.dp)
-            .height(110.dp)
-            .clip(RoundedCornerShape(16.dp))
+            .width(AppSpacing.xxxLarge * 5 + AppSpacing.large + AppSpacing.small)
+            .height(AppSpacing.xxxLarge * 2 + AppSpacing.medium + AppSpacing.extraSmall)
+            .clip(MaterialTheme.shapes.medium)
             .background(Brush.horizontalGradient(offer.gradientColors))
-            .padding(20.dp),
+            .padding(AppSpacing.large),
         contentAlignment = Alignment.CenterStart
     ) {
         Column {
             Text(
                 text = offer.title,
                 style = MaterialTheme.typography.titleMedium,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onPrimary,
                 fontWeight = FontWeight.Bold
             )
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(AppSpacing.extraSmall + AppSpacing.extraSmall / 2))
             Text(
                 text = offer.subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.85f)
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
             )
         }
     }
@@ -651,13 +669,13 @@ fun ServicesGrid(services: List<Service>, navController: NavController) {
     /* Split into rows of 2 */
     val rows = services.chunked(2)
     Column(
-        modifier = Modifier.padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        modifier = Modifier.padding(horizontal = AppSpacing.default),
+        verticalArrangement = Arrangement.spacedBy(AppSpacing.medium + AppSpacing.extraSmall / 2)
     ) {
         rows.forEach { rowItems ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                horizontalArrangement = Arrangement.spacedBy(AppSpacing.medium + AppSpacing.extraSmall / 2)
             ) {
                 rowItems.forEach { service ->
                     ServiceCard(
@@ -678,10 +696,11 @@ fun ServicesGrid(services: List<Service>, navController: NavController) {
 @Composable
 fun ServiceCard(service: Service, navController: NavController, modifier: Modifier = Modifier) {
     Card(
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(4.dp),
+        shape = MaterialTheme.shapes.medium,
+        elevation = CardDefaults.cardElevation(AppSpacing.extraSmall),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         modifier = modifier
-            .height(150.dp)
+            .height(AppSpacing.xxxLarge * 3 + AppSpacing.extraSmall + AppSpacing.extraSmall / 2)
             .clickable {
                 navController.navigate(
                     Routes.SERVICE_DETAILS + "/${service.name.replace(" ", "_")}"
@@ -691,27 +710,28 @@ fun ServiceCard(service: Service, navController: NavController, modifier: Modifi
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(14.dp),
+                .padding(AppSpacing.medium + AppSpacing.extraSmall / 2),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             Box(
                 modifier = Modifier
-                    .size(58.dp)
+                    .size(AppSpacing.xxxLarge + AppSpacing.small + AppSpacing.extraSmall / 2)
                     .background(Color(0xFFE3F2FD), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = service.icon,
                     contentDescription = service.name,
-                    modifier = Modifier.size(30.dp),
+                    modifier = Modifier.size(AppSpacing.extraLarge + AppSpacing.extraSmall + AppSpacing.extraSmall / 2),
                     tint = Color(0xFF1565C0)
                 )
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(AppSpacing.small + AppSpacing.extraSmall / 2))
             Text(
                 text = service.name,
                 style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -735,50 +755,65 @@ fun PopularServiceCard(service: Service, navController: NavController) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .padding(horizontal = AppSpacing.default, vertical = AppSpacing.extraSmall + AppSpacing.extraSmall / 2)
             .clickable {
                 navController.navigate(
                     Routes.SERVICE_DETAILS + "/${service.name.replace(" ", "_")}"
                 )
             },
-        shape = RoundedCornerShape(14.dp),
-        elevation = CardDefaults.cardElevation(3.dp)
+        shape = MaterialTheme.shapes.medium,
+        elevation = CardDefaults.cardElevation(AppSpacing.extraSmall - AppSpacing.extraSmall / 4),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
+                .padding(AppSpacing.medium + AppSpacing.extraSmall / 2),
             verticalAlignment = Alignment.CenterVertically
         ) {
             /* Icon */
             Box(
                 modifier = Modifier
-                    .size(54.dp)
-                    .background(Color(0xFFE3F2FD), RoundedCornerShape(12.dp)),
+                    .size(AppSpacing.xxxLarge + AppSpacing.extraSmall + AppSpacing.extraSmall / 2)
+                    .background(Color(0xFFE3F2FD), MaterialTheme.shapes.small + AppSpacing.extraSmall),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(service.icon, contentDescription = null, tint = Color(0xFF1565C0))
+                Icon(
+                    service.icon,
+                    contentDescription = null,
+                    tint = Color(0xFF1565C0)
+                )
             }
 
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(AppSpacing.medium + AppSpacing.extraSmall / 2))
 
             /* Details */
             Column(modifier = Modifier.weight(1f)) {
-                Text(service.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(
+                    service.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.SemiBold
+                )
                 if (service.duration.isNotBlank()) {
                     Text(
                         text = service.duration,
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Star, null, tint = Color(0xFFFFC107), modifier = Modifier.size(14.dp))
-                    Spacer(Modifier.width(3.dp))
+                    Icon(
+                        Icons.Default.Star,
+                        null,
+                        tint = Warning,
+                        modifier = Modifier.size(AppSpacing.medium + AppSpacing.extraSmall / 2)
+                    )
+                    Spacer(Modifier.width(AppSpacing.extraSmall - AppSpacing.extraSmall / 4))
                     Text(
                         text = "${service.rating} (${service.reviewCount})",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -788,7 +823,7 @@ fun PopularServiceCard(service: Service, navController: NavController) {
                 Text(
                     text = "From",
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     text = "₹${service.basePrice}",

@@ -4,7 +4,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -13,13 +12,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.nidhi.data.model.PaymentMethod
 import com.example.nidhi.navigation.Routes
+import com.example.nidhi.ui.theme.AppSpacing
 import com.example.nidhi.viewmodel.PaymentResult
 import com.example.nidhi.viewmodel.PaymentViewModel
 
@@ -71,23 +70,24 @@ fun PaymentScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
+                .padding(AppSpacing.default)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(AppSpacing.medium)
         ) {
 
             // Order summary card
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                shape = MaterialTheme.shapes.medium,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                Column(modifier = Modifier.padding(20.dp)) {
+                Column(modifier = Modifier.padding(AppSpacing.large)) {
                     Text(
                         text = "Order Summary",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(AppSpacing.medium))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -101,15 +101,23 @@ fun PaymentScreen(
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
                         )
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(AppSpacing.extraSmall))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Convenience Fee", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                        Text("₹0", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        Text(
+                            "Convenience Fee",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            "₹0",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = AppSpacing.small))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -147,7 +155,7 @@ fun PaymentScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(AppSpacing.small))
 
             Button(
                 onClick = {
@@ -163,11 +171,11 @@ fun PaymentScreen(
                     .fillMaxWidth()
                     .height(56.dp),
                 enabled = !isLoading,
-                shape = RoundedCornerShape(12.dp)
+                shape = MaterialTheme.shapes.medium
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
+                        modifier = Modifier.size(AppSpacing.extraLarge),
                         color = MaterialTheme.colorScheme.onPrimary
                     )
                 } else {
@@ -188,13 +196,13 @@ fun PaymentScreen(
                     Icons.Default.Lock,
                     contentDescription = null,
                     modifier = Modifier.size(14.dp),
-                    tint = Color.Gray
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(AppSpacing.extraSmall))
                 Text(
                     text = "Payments powered by Razorpay",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -208,34 +216,40 @@ private fun PaymentMethodCard(
     onSelect: () -> Unit
 ) {
     val (icon, tint) = when (method) {
-        PaymentMethod.UPI -> Pair(Icons.Default.AccountBalance, Color(0xFF6750A4))
-        PaymentMethod.CARD -> Pair(Icons.Default.CreditCard, Color(0xFF1976D2))
-        PaymentMethod.WALLET -> Pair(Icons.Default.AccountBalanceWallet, Color(0xFF388E3C))
-        PaymentMethod.NET_BANKING -> Pair(Icons.Default.Language, Color(0xFFE65100))
+        PaymentMethod.UPI -> Pair(Icons.Default.AccountBalance, MaterialTheme.colorScheme.primary)
+        PaymentMethod.CARD -> Pair(Icons.Default.CreditCard, MaterialTheme.colorScheme.tertiary)
+        PaymentMethod.WALLET -> Pair(Icons.Default.AccountBalanceWallet, MaterialTheme.colorScheme.secondary)
+        PaymentMethod.NET_BANKING -> Pair(Icons.Default.Language, MaterialTheme.colorScheme.error)
     }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onSelect),
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.medium,
         border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-        else BorderStroke(1.dp, Color.LightGray),
+        else BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected)
                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
             else
                 MaterialTheme.colorScheme.surface
-        )
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
             modifier = Modifier
-                .padding(16.dp)
+                .padding(AppSpacing.default)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(icon, contentDescription = method.displayName, tint = tint, modifier = Modifier.size(28.dp))
-            Spacer(modifier = Modifier.width(16.dp))
+            Icon(
+                icon,
+                contentDescription = method.displayName,
+                tint = tint,
+                modifier = Modifier.size(28.dp)
+            )
+            Spacer(modifier = Modifier.width(AppSpacing.default))
             Text(
                 text = method.displayName,
                 style = MaterialTheme.typography.bodyLarge,
