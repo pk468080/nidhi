@@ -4,6 +4,7 @@ object Routes {
     const val SPLASH = "splash"
     const val LOGIN = "login"
     const val REGISTER = "register"
+    const val OTP_VERIFICATION = "otp_verification"
     const val HOME = "home"
     const val SERVICE_DETAILS = "service_details"
     const val BOOKING = "booking"

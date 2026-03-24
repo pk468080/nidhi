@@ -4,6 +4,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.navigation.compose.*
 import com.example.nidhi.ui.screens.auth.LoginScreen
+import com.example.nidhi.ui.screens.auth.OTPVerificationScreen
 import com.example.nidhi.ui.screens.auth.RegisterScreen
 import com.example.nidhi.ui.screens.booking.BookingDetailsScreen
 import com.example.nidhi.ui.screens.booking.BookingScreen
@@ -44,6 +45,11 @@ fun NavGraph(deepLinkBookingId: String? = null) {
 
         composable(Routes.REGISTER) {
             RegisterScreen(navController)
+        }
+
+        composable(Routes.OTP_VERIFICATION + "/{phoneNumber}") { backStackEntry ->
+            val phoneNumber = backStackEntry.arguments?.getString("phoneNumber") ?: ""
+            OTPVerificationScreen(phoneNumber = phoneNumber, navController = navController)
         }
 
         composable(Routes.HOME) {
@@ -112,3 +118,4 @@ fun NavGraph(deepLinkBookingId: String? = null) {
         }
     }
 }
+
