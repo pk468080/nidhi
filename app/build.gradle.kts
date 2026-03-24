@@ -74,4 +74,5 @@ dependencies {
     implementation(libs.google.maps.compose)
     implementation(libs.google.play.services.maps)
     implementation("com.google.android.gms:play-services-location:21.3.0")
+    implementation("com.razorpay:checkout:1.6.33")
 }
