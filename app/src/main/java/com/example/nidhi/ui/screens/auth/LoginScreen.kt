@@ -1,6 +1,7 @@
 package com.example.nidhi.ui.screens.auth
 
 import android.app.Activity
+import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -20,6 +21,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.nidhi.navigation.Routes
 import com.example.nidhi.ui.theme.AppSpacing
+import com.example.nidhi.utils.formatIndianPhoneNumber
 import com.example.nidhi.viewmodel.AuthViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
@@ -94,6 +96,12 @@ fun LoginScreen(navController: NavController) {
 
         }
 
+    }
+
+    /* Sync any OTP error from the ViewModel */
+    val otpError = viewModel.otpError
+    LaunchedEffect(otpError) {
+        if (otpError != null) error = otpError
     }
 
     Column(
@@ -182,24 +190,50 @@ fun LoginScreen(navController: NavController) {
 
                 Row {
 
-                    Button(
-                        modifier = Modifier.weight(1f),
-                        onClick = { loginMethod = "email" }
-                    ) {
-                        Icon(Icons.Default.Email, null)
-                        Spacer(modifier = Modifier.width(AppSpacing.extraSmall + AppSpacing.extraSmall))
-                        Text("Email")
+                    if (loginMethod == "email") {
+                        Button(
+                            modifier = Modifier.weight(1f),
+                            onClick = { loginMethod = "email" }
+                        ) {
+                            Icon(Icons.Default.Email, null)
+                            Spacer(modifier = Modifier.width(AppSpacing.extraSmall + AppSpacing.extraSmall))
+                            Text("Email")
+                        }
+                    } else {
+                        OutlinedButton(
+                            modifier = Modifier.weight(1f),
+                            onClick = { loginMethod = "email" }
+                        ) {
+                            Icon(Icons.Default.Email, null)
+                            Spacer(modifier = Modifier.width(AppSpacing.extraSmall + AppSpacing.extraSmall))
+                            Text("Email")
+                        }
                     }
 
                     Spacer(modifier = Modifier.width(AppSpacing.small))
 
-                    OutlinedButton(
-                        modifier = Modifier.weight(1f),
-                        onClick = { loginMethod = "phone" }
-                    ) {
-                        Icon(Icons.Default.Phone, null)
-                        Spacer(modifier = Modifier.width(AppSpacing.extraSmall + AppSpacing.extraSmall))
-                        Text("Phone")
+                    if (loginMethod == "phone") {
+                        Button(
+                            modifier = Modifier.weight(1f),
+                            onClick = { loginMethod = "phone" }
+                        ) {
+                            Icon(Icons.Default.Phone, null)
+                            Spacer(modifier = Modifier.width(AppSpacing.extraSmall + AppSpacing.extraSmall))
+                            Text("Phone")
+                        }
+                    } else {
+                        OutlinedButton(
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                loginMethod = "phone"
+                                error = ""
+                                viewModel.resetOtpState()
+                            }
+                        ) {
+                            Icon(Icons.Default.Phone, null)
+                            Spacer(modifier = Modifier.width(AppSpacing.extraSmall + AppSpacing.extraSmall))
+                            Text("Phone")
+                        }
                     }
 
                 }
@@ -225,7 +259,7 @@ fun LoginScreen(navController: NavController) {
                     OutlinedTextField(
                         value = phone,
                         onValueChange = { phone = it },
-                        label = { Text("Phone Number") },
+                        label = { Text("Phone Number (+91)") },
                         modifier = Modifier.fillMaxWidth(),
                         leadingIcon = {
                             Icon(Icons.Default.Phone, null)
@@ -236,7 +270,7 @@ fun LoginScreen(navController: NavController) {
 
                 Spacer(modifier = Modifier.height(AppSpacing.medium))
 
-                /* Password */
+                /* Password – only shown for email login */
 
                 if (loginMethod == "email") {
 
@@ -272,37 +306,55 @@ fun LoginScreen(navController: NavController) {
 
                 Spacer(modifier = Modifier.height(AppSpacing.large))
 
-                /* Login Button */
+                /* Login / Get OTP Button */
 
                 Button(
 
                     modifier = Modifier.fillMaxWidth(),
+                    enabled = !viewModel.isSendingOtp,
 
                     onClick = {
+
+                        error = ""
 
                         if (loginMethod == "email") {
 
                             if (email.isEmpty() || password.isEmpty()) {
-
                                 error = "Fields cannot be empty"
                                 return@Button
-
                             }
 
                             viewModel.login(email, password) { success, message ->
-
                                 if (success) {
-
                                     navController.navigate(Routes.HOME) {
                                         popUpTo(Routes.LOGIN) { inclusive = true }
                                     }
-
                                 } else {
-
                                     error = message ?: "Login failed"
-
                                 }
+                            }
 
+                        } else {
+
+                            val formatted = formatIndianPhoneNumber(phone)
+                            if (formatted == null) {
+                                error = "Enter a valid 10-digit phone number"
+                                return@Button
+                            }
+
+                            viewModel.resetOtpState()
+
+                            (context as? Activity)?.let { activity ->
+                                viewModel.sendOTP(
+                                    activity = activity,
+                                    phoneNumber = formatted,
+                                    onCodeSent = {
+                                        navController.navigate(
+                                            Routes.OTP_VERIFICATION + "/${Uri.encode(formatted)}"
+                                        )
+                                    },
+                                    onError = { msg -> error = msg }
+                                )
                             }
 
                         }
@@ -311,12 +363,17 @@ fun LoginScreen(navController: NavController) {
 
                 ) {
 
-                    Text(
-                        if (loginMethod == "phone")
-                            "Get OTP"
-                        else
-                            "Login"
-                    )
+                    if (viewModel.isSendingOtp) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(AppSpacing.extraLarge),
+                            strokeWidth = AppSpacing.extraSmall,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    } else {
+                        Text(
+                            if (loginMethod == "phone") "Get OTP" else "Login"
+                        )
+                    }
 
                 }
 
@@ -385,3 +442,4 @@ fun LoginScreen(navController: NavController) {
     }
 
 }
+
