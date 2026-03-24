@@ -4,17 +4,19 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.nidhi.data.model.Booking
 import com.example.nidhi.data.model.BookingStatus
 import com.example.nidhi.navigation.Routes
+import com.example.nidhi.ui.theme.AppSpacing
+import com.example.nidhi.ui.theme.Error
+import com.example.nidhi.ui.theme.Info
+import com.example.nidhi.ui.theme.Success
+import com.example.nidhi.ui.theme.Warning
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
@@ -41,7 +43,7 @@ fun BookingsScreen(navController: NavController) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(20.dp)
+            .padding(AppSpacing.large)
     ) {
 
         Text(
@@ -49,18 +51,22 @@ fun BookingsScreen(navController: NavController) {
             style = MaterialTheme.typography.headlineMedium
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(AppSpacing.large))
 
         if (bookings.isEmpty()) {
             Box(
-                modifier = Modifier.fillMaxWidth().padding(40.dp),
+                modifier = Modifier.fillMaxWidth().padding(AppSpacing.xxxLarge),
                 contentAlignment = androidx.compose.ui.Alignment.Center
             ) {
-                Text("No bookings yet", color = Color.Gray)
+                Text(
+                    text = "No bookings yet",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         } else {
             LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
             ) {
                 items(bookings) { booking ->
                     BookingListCard(booking = booking, navController = navController)
@@ -73,11 +79,11 @@ fun BookingsScreen(navController: NavController) {
 @Composable
 private fun BookingListCard(booking: Booking, navController: NavController) {
     val statusColor = when (booking.status) {
-        BookingStatus.PENDING.value -> Color(0xFFF57F17)
-        BookingStatus.ACCEPTED.value, BookingStatus.ON_THE_WAY.value -> Color(0xFF1565C0)
-        BookingStatus.ARRIVED.value, BookingStatus.COMPLETED.value -> Color(0xFF2E7D32)
-        BookingStatus.REJECTED.value, BookingStatus.CANCELLED.value -> Color(0xFFC62828)
-        else -> Color.Gray
+        BookingStatus.PENDING.value -> Warning
+        BookingStatus.ACCEPTED.value, BookingStatus.ON_THE_WAY.value -> Info
+        BookingStatus.ARRIVED.value, BookingStatus.COMPLETED.value -> Success
+        BookingStatus.REJECTED.value, BookingStatus.CANCELLED.value -> Error
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
     Card(
@@ -88,10 +94,11 @@ private fun BookingListCard(booking: Booking, navController: NavController) {
                     navController.navigate(Routes.BOOKING_DETAILS + "/${booking.bookingId}")
                 }
             },
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = MaterialTheme.shapes.medium,
+        elevation = CardDefaults.cardElevation(defaultElevation = AppSpacing.extraSmall),
+        colors = CardDefaults.cardColors()
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(AppSpacing.default)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -109,38 +116,38 @@ private fun BookingListCard(booking: Booking, navController: NavController) {
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(AppSpacing.extraSmall))
 
             if (booking.address.isNotEmpty()) {
                 Text(
                     text = booking.address,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1
                 )
             }
 
             if (booking.scheduledDate.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(AppSpacing.extraSmall))
                 Text(
                     text = "${booking.scheduledDate}${if (booking.scheduledTime.isNotEmpty()) " at ${booking.scheduledTime}" else ""}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(AppSpacing.small))
 
             Surface(
                 color = statusColor.copy(alpha = 0.12f),
-                shape = RoundedCornerShape(20.dp)
+                shape = MaterialTheme.shapes.large
             ) {
                 val statusLabel = BookingStatus.values()
                     .find { it.value == booking.status }?.displayName
                     ?: booking.status.replaceFirstChar { it.uppercase() }
                 Text(
                     text = statusLabel,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                    modifier = Modifier.padding(horizontal = AppSpacing.small, vertical = AppSpacing.extraSmall),
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                     color = statusColor
                 )

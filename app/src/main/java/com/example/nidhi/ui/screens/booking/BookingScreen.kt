@@ -10,7 +10,6 @@ import android.location.Location
 import android.os.Build
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,12 +23,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.nidhi.R
 import com.example.nidhi.data.model.ServiceCategory
 import com.example.nidhi.navigation.Routes
+import com.example.nidhi.ui.theme.AppSpacing
 import com.example.nidhi.viewmodel.BookingResult
 import com.example.nidhi.viewmodel.BookingViewModel
 import com.google.android.gms.location.LocationServices
@@ -220,14 +219,15 @@ fun BookingScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
+                .padding(AppSpacing.default)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(AppSpacing.medium)
         ) {
 
             Text(
                 text = "Service Details",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurface
             )
 
             OutlinedTextField(
@@ -243,7 +243,7 @@ fun BookingScreen(
                 },
                 trailingIcon = {
                     if (isFetchingAddress) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        CircularProgressIndicator(modifier = Modifier.size(AppSpacing.large), strokeWidth = AppSpacing.extraSmall / 2)
                     } else {
                         IconButton(onClick = { triggerAddressAutofill() }) {
                             Icon(
@@ -255,20 +255,20 @@ fun BookingScreen(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 isError = errorMessage.contains("address", ignoreCase = true),
-                shape = RoundedCornerShape(12.dp)
+                shape = MaterialTheme.shapes.medium
             )
 
             TextButton(
                 onClick = { triggerAddressAutofill() },
                 enabled = !isFetchingAddress,
-                contentPadding = PaddingValues(0.dp)
+                contentPadding = PaddingValues(AppSpacing.extraSmall / 4)
             ) {
                 Text(stringResource(R.string.booking_use_current_location))
             }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)
             ) {
                 OutlinedTextField(
                     value = selectedDate,
@@ -283,7 +283,7 @@ fun BookingScreen(
                     },
                     modifier = Modifier.weight(1f),
                     isError = errorMessage.contains("date", ignoreCase = true),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = MaterialTheme.shapes.medium
                 )
 
                 OutlinedTextField(
@@ -299,7 +299,7 @@ fun BookingScreen(
                     },
                     modifier = Modifier.weight(1f),
                     isError = errorMessage.contains("time", ignoreCase = true),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = MaterialTheme.shapes.medium
                 )
             }
 
@@ -310,7 +310,7 @@ fun BookingScreen(
                 placeholder = { Text("Any specific requirements...") },
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 3,
-                shape = RoundedCornerShape(12.dp)
+                shape = MaterialTheme.shapes.medium
             )
 
             // Pricing info
@@ -329,7 +329,7 @@ fun BookingScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(AppSpacing.small))
 
             Button(
                 onClick = {
@@ -351,13 +351,13 @@ fun BookingScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
+                    .height(AppSpacing.xxxLarge + AppSpacing.small),
                 enabled = !isLoading,
-                shape = RoundedCornerShape(12.dp)
+                shape = MaterialTheme.shapes.medium
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
+                        modifier = Modifier.size(AppSpacing.extraLarge),
                         color = MaterialTheme.colorScheme.onPrimary
                     )
                 } else {
@@ -457,4 +457,3 @@ private fun Address.toDisplayAddress(): String? {
             .joinToString(", ")
             .ifBlank { null }
 }
-

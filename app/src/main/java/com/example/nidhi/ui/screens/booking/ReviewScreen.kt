@@ -2,7 +2,6 @@ package com.example.nidhi.ui.screens.booking
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -12,13 +11,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.nidhi.data.model.Booking
 import com.example.nidhi.data.model.Review
 import com.example.nidhi.data.repository.ReviewRepository
+import com.example.nidhi.ui.theme.AppSpacing
+import com.example.nidhi.ui.theme.Warning
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
@@ -72,21 +72,23 @@ fun ReviewScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
+                .padding(AppSpacing.default)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(AppSpacing.default)
         ) {
             if (alreadyReviewed) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.secondaryContainer
-                    )
+                    ),
+                    shape = MaterialTheme.shapes.medium
                 ) {
                     Text(
                         text = "You have already submitted a review for this booking.",
-                        modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.bodyMedium
+                        modifier = Modifier.padding(AppSpacing.default),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                 }
                 return@Column
@@ -95,18 +97,20 @@ fun ReviewScreen(
             booking?.let { b ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = MaterialTheme.shapes.medium,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.padding(AppSpacing.default)) {
                         Text(
                             text = b.serviceName,
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         if (b.providerName.isNotEmpty()) {
                             Text(
                                 text = "Provider: ${b.providerName}",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color.Gray
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -115,18 +119,19 @@ fun ReviewScreen(
 
             Text(
                 text = "Rate your experience",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurface
             )
 
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)
             ) {
                 for (star in 1..5) {
                     IconButton(onClick = { rating = star }) {
                         Icon(
                             imageVector = if (star <= rating) Icons.Filled.Star else Icons.Outlined.StarOutline,
                             contentDescription = "$star stars",
-                            tint = if (star <= rating) Color(0xFFFFC107) else Color.Gray,
+                            tint = if (star <= rating) Warning else MaterialTheme.colorScheme.outlineVariant,
                             modifier = Modifier.size(36.dp)
                         )
                     }
@@ -140,7 +145,8 @@ fun ReviewScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(120.dp),
-                maxLines = 5
+                maxLines = 5,
+                shape = MaterialTheme.shapes.medium
             )
 
             Button(
@@ -176,7 +182,7 @@ fun ReviewScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
-                shape = RoundedCornerShape(12.dp),
+                shape = MaterialTheme.shapes.medium,
                 enabled = !isSubmitting
             ) {
                 if (isSubmitting) {
@@ -193,7 +199,7 @@ fun ReviewScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(AppSpacing.default))
         }
     }
 }

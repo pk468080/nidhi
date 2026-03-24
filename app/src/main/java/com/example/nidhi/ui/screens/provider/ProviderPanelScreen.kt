@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.LocationOn
@@ -48,15 +47,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.nidhi.data.model.Booking
 import com.example.nidhi.data.model.BookingStatus
+import com.example.nidhi.ui.theme.AppSpacing
 import com.example.nidhi.viewmodel.ProviderPanelViewModel
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationResult
@@ -164,7 +161,7 @@ fun ProviderPanelScreen(navController: NavController) {
                     .padding(padding),
                 verticalArrangement = Arrangement.Center
             ) {
-                CircularProgressIndicator(modifier = Modifier.padding(start = 24.dp))
+                CircularProgressIndicator(modifier = Modifier.padding(start = AppSpacing.extraLarge))
             }
             return@Scaffold
         }
@@ -173,14 +170,13 @@ fun ProviderPanelScreen(navController: NavController) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(AppSpacing.default),
+            verticalArrangement = Arrangement.spacedBy(AppSpacing.medium)
         ) {
             item {
                 Text(
                     text = "Pending Requests",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.titleLarge
                 )
             }
 
@@ -197,13 +193,12 @@ fun ProviderPanelScreen(navController: NavController) {
             }
 
             item {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(AppSpacing.small))
                 HorizontalDivider()
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(AppSpacing.small))
                 Text(
                     text = "Active Jobs",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.titleLarge
                 )
             }
 
@@ -250,11 +245,17 @@ private fun ProviderBookingCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = MaterialTheme.shapes.medium,
+        elevation = CardDefaults.cardElevation(defaultElevation = AppSpacing.extraSmall)
     ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(booking.serviceName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Column(
+            modifier = Modifier.padding(AppSpacing.medium),
+            verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
+        ) {
+            Text(
+                text = booking.serviceName,
+                style = MaterialTheme.typography.titleMedium
+            )
             BookingMetaRow(icon = Icons.Default.Person, label = "Customer", value = booking.userId.take(8))
             BookingMetaRow(icon = Icons.Default.LocationOn, label = "Address", value = booking.address)
             BookingMetaRow(
@@ -263,7 +264,10 @@ private fun ProviderBookingCard(
                 value = "${booking.scheduledDate} ${booking.scheduledTime}".trim()
             )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(AppSpacing.small),
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Button(onClick = onAccept, modifier = Modifier.weight(1f)) {
                     Text("Accept")
                 }
@@ -286,20 +290,29 @@ private fun ActiveBookingCard(
     onToggleLiveTracking: () -> Unit
 ) {
     val statusColor = when (booking.status) {
-        BookingStatus.ACCEPTED.value -> Color(0xFF1565C0)
-        BookingStatus.ON_THE_WAY.value -> Color(0xFFE65100)
-        BookingStatus.ARRIVED.value -> Color(0xFF2E7D32)
-        else -> Color.Gray
+        BookingStatus.ACCEPTED.value -> MaterialTheme.colorScheme.primary
+        BookingStatus.ON_THE_WAY.value -> MaterialTheme.colorScheme.tertiary
+        BookingStatus.ARRIVED.value -> MaterialTheme.colorScheme.secondary
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = MaterialTheme.shapes.medium,
+        elevation = CardDefaults.cardElevation(defaultElevation = AppSpacing.extraSmall)
     ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(booking.serviceName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Column(
+            modifier = Modifier.padding(AppSpacing.medium),
+            verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = booking.serviceName,
+                    style = MaterialTheme.typography.titleMedium
+                )
                 AssistChip(
                     onClick = {},
                     enabled = false,
@@ -308,16 +321,29 @@ private fun ActiveBookingCard(
                     }
                 )
             }
-            Text(booking.address, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            Text(
+                text = booking.address,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
             if (booking.status == BookingStatus.ACCEPTED.value) {
-                TextButton(onClick = onOnTheWay, modifier = Modifier.fillMaxWidth()) {
-                    Text("Mark On The Way", color = statusColor)
+                TextButton(
+                    onClick = onOnTheWay,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Mark On The Way",
+                        color = statusColor
+                    )
                 }
             }
 
             if (booking.status == BookingStatus.ON_THE_WAY.value) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(AppSpacing.small),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     OutlinedButton(onClick = onBumpLocation, modifier = Modifier.weight(1f)) {
                         Text("Update Location")
                     }
@@ -326,13 +352,19 @@ private fun ActiveBookingCard(
                     }
                 }
 
-                OutlinedButton(onClick = onToggleLiveTracking, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(
+                    onClick = onToggleLiveTracking,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Text(if (isLiveTracking) "Stop Live Tracking" else "Start Live Tracking")
                 }
             }
 
             if (booking.status == BookingStatus.ARRIVED.value) {
-                Button(onClick = onComplete, modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = onComplete,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Text("Complete Service")
                 }
             }
@@ -342,19 +374,33 @@ private fun ActiveBookingCard(
 
 @Composable
 private fun BookingMetaRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        Icon(icon, contentDescription = null, tint = Color.Gray)
-        Text(text = "$label: $value", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(AppSpacing.small),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = "$label: $value",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
 @Composable
 private fun EmptyState(text: String) {
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium
+    ) {
         Text(
             text = text,
-            modifier = Modifier.padding(16.dp),
-            color = Color.Gray,
+            modifier = Modifier.padding(AppSpacing.default),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium
         )
     }
@@ -371,5 +417,4 @@ private fun hasLocationPermission(context: android.content.Context): Boolean {
     ) == PackageManager.PERMISSION_GRANTED
     return fineGranted || coarseGranted
 }
-
 

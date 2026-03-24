@@ -13,11 +13,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.nidhi.navigation.Routes
 import com.example.nidhi.ui.screens.home.allServices
+import com.example.nidhi.ui.theme.AppSpacing
+import com.example.nidhi.ui.theme.Warning
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,26 +72,49 @@ fun SearchScreen(navController: NavController) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 8.dp)
+                .padding(horizontal = AppSpacing.small)
         ) {
             items(filtered) { service ->
                 ListItem(
-                    headlineContent = { Text(service.name) },
+                    headlineContent = {
+                        Text(
+                            service.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    },
                     supportingContent = {
                         if (service.basePrice > 0) {
-                            Text("From ₹${service.basePrice} · ${service.duration}")
+                            Text(
+                                "From ₹${service.basePrice} · ${service.duration}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     },
                     trailingContent = {
                         if (service.rating > 0f) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Star, null, tint = Color(0xFFFFC107), modifier = Modifier.size(14.dp))
-                                Text(" ${service.rating}", style = MaterialTheme.typography.bodySmall)
+                                Icon(
+                                    Icons.Default.Star,
+                                    contentDescription = null,
+                                    tint = Warning,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    " ${service.rating}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     },
                     leadingContent = {
-                        Icon(service.icon, contentDescription = service.name)
+                        Icon(
+                            service.icon,
+                            contentDescription = service.name,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                     },
                     modifier = Modifier.clickable {
                         navController.navigate(
@@ -106,13 +130,13 @@ fun SearchScreen(navController: NavController) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(40.dp),
+                            .padding(AppSpacing.xxxLarge),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = "No services found for \"$query\"",
                             style = MaterialTheme.typography.bodyLarge,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
