@@ -3,7 +3,6 @@ package com.example.nidhi.ui.screens.payment
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
@@ -12,13 +11,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.nidhi.data.model.Payment
 import com.example.nidhi.data.model.PaymentStatus
+import com.example.nidhi.ui.theme.AppSpacing
+import com.example.nidhi.ui.theme.Error
+import com.example.nidhi.ui.theme.Success
 import com.example.nidhi.viewmodel.PaymentViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -58,7 +59,7 @@ fun TransactionHistoryScreen(navController: NavController) {
                 Text(
                     text = "No transactions yet",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         } else {
@@ -66,9 +67,9 @@ fun TransactionHistoryScreen(navController: NavController) {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(vertical = 8.dp)
+                    .padding(horizontal = AppSpacing.default),
+                verticalArrangement = Arrangement.spacedBy(AppSpacing.small),
+                contentPadding = PaddingValues(vertical = AppSpacing.small)
             ) {
                 items(transactions) { payment ->
                     TransactionCard(payment)
@@ -86,54 +87,58 @@ private fun TransactionCard(payment: Payment) {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp)
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = AppSpacing.extraSmall)
     ) {
         Row(
             modifier = Modifier
-                .padding(16.dp)
+                .padding(AppSpacing.default)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = if (isSuccess) Icons.Default.CheckCircle else Icons.Default.Error,
                 contentDescription = null,
-                tint = if (isSuccess) Color(0xFF4CAF50) else Color(0xFFF44336),
+                tint = if (isSuccess) Success else Error,
                 modifier = Modifier.size(40.dp)
             )
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(AppSpacing.medium))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = payment.serviceName.replace("_", " "),
-                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold)
+                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = payment.method.uppercase().replace("_", " "),
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     text = date,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 if (payment.transactionId.isNotEmpty()) {
                     Text(
                         text = "ID: ${payment.transactionId}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = "₹${"%.0f".format(payment.amount)}",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = if (isSuccess) "Paid"
                     else payment.status.replaceFirstChar { it.uppercase() },
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (isSuccess) Color(0xFF4CAF50) else Color(0xFFF44336)
+                    color = if (isSuccess) Success else Error
                 )
             }
         }
