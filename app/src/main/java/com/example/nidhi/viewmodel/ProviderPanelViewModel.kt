@@ -134,12 +134,14 @@ class ProviderPanelViewModel : ViewModel() {
                 )
             )
             .addOnSuccessListener {
+                // Provider lat/lng start as NaN; real GPS coordinates are written once
+                // the provider starts live tracking or bumps their location manually.
                 writeTracking(
                     bookingId = booking.bookingId,
                     status = BookingStatus.ACCEPTED.value,
-                    eta = 20,
-                    lat = 28.6250,
-                    lng = 77.2200,
+                    eta = 0,
+                    lat = Double.NaN,
+                    lng = Double.NaN,
                     providerName = providerName,
                     providerPhone = providerPhone,
                     providerRating = 4.8
@@ -197,15 +199,21 @@ class ProviderPanelViewModel : ViewModel() {
     fun bumpProviderLocation(booking: Booking) {
         val ref = realtimeDb.getReference("tracking/${booking.bookingId}")
         ref.get().addOnSuccessListener { snap ->
-            val currentLat = snap.child("providerLat").getValue(Double::class.java) ?: 28.6250
-            val currentLng = snap.child("providerLng").getValue(Double::class.java) ?: 77.2200
-            val currentEta = snap.child("eta").getValue(Long::class.java)?.toInt() ?: 10
+            val currentLat = snap.child("providerLat").getValue(Double::class.java)
+            val currentLng = snap.child("providerLng").getValue(Double::class.java)
+
+            // Only bump if a valid GPS location has already been set (e.g. via live tracking).
+            if (currentLat == null || currentLng == null ||
+                !currentLat.isFinite() || !currentLng.isFinite()
+            ) {
+                _uiState.update { it.copy(message = "No GPS location set yet. Use live tracking first.") }
+                return@addOnSuccessListener
+            }
 
             ref.updateChildren(
                 mapOf(
                     "providerLat" to (currentLat - 0.0025),
-                    "providerLng" to (currentLng - 0.0020),
-                    "eta" to (currentEta - 2).coerceAtLeast(1)
+                    "providerLng" to (currentLng - 0.0020)
                 )
             )
             _uiState.update { it.copy(message = "Provider location updated") }
