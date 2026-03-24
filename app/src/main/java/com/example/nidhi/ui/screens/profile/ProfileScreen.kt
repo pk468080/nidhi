@@ -2,7 +2,6 @@ package com.example.nidhi.ui.screens.profile
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.FactCheck
 import androidx.compose.material.icons.automirrored.filled.Logout
@@ -11,11 +10,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.nidhi.navigation.Routes
+import com.example.nidhi.ui.theme.AppSpacing
 import com.google.firebase.auth.FirebaseAuth
 
 @Composable
@@ -26,25 +24,27 @@ fun ProfileScreen(onLogout: () -> Unit, navController: NavController? = null) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .padding(AppSpacing.large),
+        verticalArrangement = Arrangement.spacedBy(AppSpacing.medium)
     ) {
 
         Text(
             text = "Profile",
-            style = MaterialTheme.typography.headlineMedium
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onSurface
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(AppSpacing.small))
 
         // User info card
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            shape = MaterialTheme.shapes.medium,
+            elevation = CardDefaults.cardElevation(defaultElevation = AppSpacing.extraSmall),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Row(
-                modifier = Modifier.padding(20.dp),
+                modifier = Modifier.padding(AppSpacing.large),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
@@ -60,16 +60,17 @@ fun ProfileScreen(onLogout: () -> Unit, navController: NavController? = null) {
                         )
                     }
                 }
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.width(AppSpacing.default))
                 Column {
                     Text(
                         text = user?.displayName?.takeIf { it.isNotEmpty() } ?: "User",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = user?.email ?: "",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -80,30 +81,30 @@ fun ProfileScreen(onLogout: () -> Unit, navController: NavController? = null) {
             OutlinedButton(
                 onClick = { navController.navigate(Routes.TRANSACTIONS) },
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                shape = MaterialTheme.shapes.medium
             ) {
                 Icon(Icons.Default.Receipt, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(AppSpacing.small))
                 Text("Transaction History")
             }
 
             OutlinedButton(
                 onClick = { navController.navigate(Routes.PROVIDER_PANEL) },
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                shape = MaterialTheme.shapes.medium
             ) {
                 Icon(Icons.Default.Engineering, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(AppSpacing.small))
                 Text("Provider Panel (Temporary)")
             }
 
             OutlinedButton(
                 onClick = { navController.navigate(Routes.FLOW_CHECKLIST) },
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                shape = MaterialTheme.shapes.medium
             ) {
                 Icon(Icons.AutoMirrored.Filled.FactCheck, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(AppSpacing.small))
                 Text("Flow Checklist Logs")
             }
         }
@@ -116,11 +117,11 @@ fun ProfileScreen(onLogout: () -> Unit, navController: NavController? = null) {
                 onLogout()
             },
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
+            shape = MaterialTheme.shapes.medium,
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
         ) {
             Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(AppSpacing.small))
             Text("Logout")
         }
     }

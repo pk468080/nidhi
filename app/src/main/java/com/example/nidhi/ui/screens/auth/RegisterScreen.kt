@@ -4,11 +4,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.nidhi.navigation.Routes
+import com.example.nidhi.ui.theme.AppSpacing
 import com.example.nidhi.viewmodel.AuthViewModel
 
 @Composable
@@ -23,60 +23,63 @@ fun RegisterScreen(navController: NavController) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(20.dp)
+            .padding(AppSpacing.large)
     ) {
 
-        Text("Create Account", style = MaterialTheme.typography.headlineMedium)
+        Text(
+            "Create Account",
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
 
-        Spacer(modifier = Modifier.height(30.dp))
+        Spacer(modifier = Modifier.height(AppSpacing.xxLarge))
 
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
             label = { Text("Email") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium
         )
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(AppSpacing.medium))
 
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
             label = { Text("Password") },
             visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(AppSpacing.large))
 
         Button(
             onClick = {
-
                 viewModel.register(email, password) { success, message ->
-
                     if (success) {
-
                         navController.navigate(Routes.HOME) {
                             popUpTo(Routes.REGISTER) { inclusive = true }
                         }
-
                     } else {
-
                         error = message ?: "Registration failed"
-
                     }
-
                 }
-
             },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium
         ) {
-            Text("Register")
+            Text("Register", style = MaterialTheme.typography.labelLarge)
         }
 
         if (error.isNotEmpty()) {
-            Text(error, color = MaterialTheme.colorScheme.error)
+            Spacer(modifier = Modifier.height(AppSpacing.medium))
+            Text(
+                error,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium
+            )
         }
-
     }
 }
