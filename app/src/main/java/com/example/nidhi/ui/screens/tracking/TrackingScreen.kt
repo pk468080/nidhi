@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -41,6 +42,7 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.*
 import com.google.maps.android.compose.*
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 @Composable
 fun TrackingScreen(bookingId: String) {
@@ -96,6 +98,7 @@ fun TrackingScreen(bookingId: String) {
                 override fun onLocationResult(result: LocationResult) {
                     val location = result.lastLocation ?: return
                     customerLocation = LatLng(location.latitude, location.longitude)
+                    viewModel.updateCustomerLocation(location.latitude, location.longitude)
                 }
             }
 
@@ -160,6 +163,27 @@ fun TrackingScreen(bookingId: String) {
             }
         }
 
+        // Offline banner
+        AnimatedVisibility(
+            visible = trackingData.isOffline,
+            modifier = Modifier.align(Alignment.TopCenter)
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(AppSpacing.medium),
+                color = MaterialTheme.colorScheme.errorContainer,
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Text(
+                    text = "⚠️  You are offline - showing last known location",
+                    modifier = Modifier.padding(AppSpacing.medium),
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.labelLarge
+                )
+            }
+        }
+
         // Bottom info card overlaid on the map
         Card(
             modifier = Modifier
@@ -178,7 +202,7 @@ fun TrackingScreen(bookingId: String) {
 
                 Spacer(modifier = Modifier.height(AppSpacing.default))
 
-                // ETA
+                // ETA + distance
                 if (trackingData.status == BookingStatus.PENDING.value) {
                     Text(
                         text = "Waiting for provider acceptance",
@@ -204,6 +228,14 @@ fun TrackingScreen(bookingId: String) {
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        if (!trackingData.distanceKm.isNaN()) {
+                            Spacer(modifier = Modifier.width(AppSpacing.medium))
+                            Text(
+                                text = "(${formatDistance(trackingData.distanceKm)})",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
 
@@ -279,6 +311,14 @@ fun TrackingScreen(bookingId: String) {
     }
 }
 
+/** Formats a distance value in km to a human-readable string. */
+private fun formatDistance(distanceKm: Double): String =
+    if (distanceKm < 1.0) {
+        "${(distanceKm * 1000).toInt()} m"
+    } else {
+        String.format(Locale.getDefault(), "%.1f km", distanceKm)
+    }
+
 private fun hasLocationPermission(context: Context): Boolean {
     val fineGranted = ContextCompat.checkSelfPermission(
         context,
@@ -314,3 +354,4 @@ private fun TrackingStatusChip(status: String) {
         )
     }
 }
+
