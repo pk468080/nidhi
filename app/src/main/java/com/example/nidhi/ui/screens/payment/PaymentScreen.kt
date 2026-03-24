@@ -1,5 +1,6 @@
 package com.example.nidhi.ui.screens.payment
 
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -12,15 +13,18 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.nidhi.data.model.PaymentMethod
 import com.example.nidhi.navigation.Routes
+import com.example.nidhi.payment.RazorpayConfig
 import com.example.nidhi.ui.theme.AppSpacing
 import com.example.nidhi.viewmodel.PaymentResult
 import com.example.nidhi.viewmodel.PaymentViewModel
+import com.razorpay.Checkout
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,9 +37,21 @@ fun PaymentScreen(
     val viewModel: PaymentViewModel = viewModel()
     val isLoading by viewModel.isLoading.collectAsState()
     val paymentResult by viewModel.paymentResult.collectAsState()
+    val checkoutOptions by viewModel.checkoutOptions.collectAsState()
 
+    val context = LocalContext.current
+    val checkout = remember { Checkout() }
     var selectedMethod by remember { mutableStateOf(PaymentMethod.UPI) }
     var errorMessage by remember { mutableStateOf("") }
+
+    // Launch Razorpay Checkout when the ViewModel emits checkout options.
+    LaunchedEffect(checkoutOptions) {
+        val options = checkoutOptions ?: return@LaunchedEffect
+        val activity = context as? ComponentActivity ?: return@LaunchedEffect
+        viewModel.onCheckoutLaunched()
+        checkout.setKeyID(RazorpayConfig.KEY_ID)
+        checkout.open(activity, options)
+    }
 
     LaunchedEffect(paymentResult) {
         when (val result = paymentResult) {

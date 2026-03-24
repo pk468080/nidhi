@@ -11,10 +11,14 @@ import androidx.core.content.ContextCompat
 import com.example.nidhi.navigation.NavGraph
 import com.example.nidhi.notifications.AppFirebaseMessagingService
 import com.example.nidhi.notifications.PushTokenRegistrar
+import com.example.nidhi.payment.RazorpayPaymentHandler
 import com.example.nidhi.ui.theme.NidhiTheme
 import com.google.firebase.FirebaseApp
+import com.razorpay.Checkout
+import com.razorpay.PaymentData
+import com.razorpay.PaymentResultWithDataListener
 
-class MainActivity : ComponentActivity() {
+class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -22,6 +26,9 @@ class MainActivity : ComponentActivity() {
         FirebaseApp.initializeApp(this)
         PushTokenRegistrar.registerCurrentTokenIfLoggedIn()
         requestNotificationPermissionIfNeeded()
+
+        // Preload Razorpay SDK assets for faster checkout launch.
+        Checkout.preload(applicationContext)
 
         val deepLinkBookingId = intent
             ?.getStringExtra(AppFirebaseMessagingService.EXTRA_BOOKING_ID)
@@ -33,6 +40,19 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    // ── Razorpay callbacks ──────────────────────────────────────────────────
+
+    override fun onPaymentSuccess(razorpayPaymentId: String?, paymentData: PaymentData?) {
+        if (razorpayPaymentId.isNullOrBlank()) return
+        RazorpayPaymentHandler.handleSuccess(razorpayPaymentId)
+    }
+
+    override fun onPaymentError(errorCode: Int, errorDescription: String?, paymentData: PaymentData?) {
+        RazorpayPaymentHandler.handleError(errorCode, errorDescription)
+    }
+
+    // ── Notification permission ─────────────────────────────────────────────
 
     private fun requestNotificationPermissionIfNeeded() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return

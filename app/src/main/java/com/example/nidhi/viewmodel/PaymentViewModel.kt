@@ -5,12 +5,14 @@ import com.example.nidhi.data.model.Payment
 import com.example.nidhi.data.model.PaymentMethod
 import com.example.nidhi.data.model.PaymentStatus
 import com.example.nidhi.data.repository.PaymentRepository
+import com.example.nidhi.payment.RazorpayPaymentHandler
+import com.example.nidhi.payment.RazorpayUtility
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.util.UUID
+import org.json.JSONObject
 
 class PaymentViewModel : ViewModel() {
 
@@ -27,6 +29,30 @@ class PaymentViewModel : ViewModel() {
     private val _paymentResult = MutableStateFlow<PaymentResult?>(null)
     val paymentResult: StateFlow<PaymentResult?> = _paymentResult.asStateFlow()
 
+    /**
+     * Emits the Razorpay checkout options when the user taps "Pay".
+     * PaymentScreen observes this and calls Checkout.open() on the Activity.
+     * Reset to null by calling [onCheckoutLaunched] after the checkout is opened.
+     */
+    private val _checkoutOptions = MutableStateFlow<JSONObject?>(null)
+    val checkoutOptions: StateFlow<JSONObject?> = _checkoutOptions.asStateFlow()
+
+    // Pending payment details stored while Razorpay checkout is in progress.
+    private var pendingPayment: Payment? = null
+    private var pendingBookingId: String? = null
+
+    init {
+        RazorpayPaymentHandler.registerCallbacks(
+            onSuccess = { paymentId -> onRazorpaySuccess(paymentId) },
+            onError = { code, description -> onRazorpayError(code, description) }
+        )
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        RazorpayPaymentHandler.unregisterCallbacks()
+    }
+
     fun loadTransactions() {
         val userId = auth.currentUser?.uid ?: return
         repository.getUserTransactions(userId) { payments ->
@@ -34,6 +60,10 @@ class PaymentViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Prepares and emits Razorpay checkout options.
+     * The actual checkout is opened by [PaymentScreen] once it observes the emitted options.
+     */
     fun processPayment(
         bookingId: String,
         serviceName: String,
@@ -41,35 +71,73 @@ class PaymentViewModel : ViewModel() {
         method: PaymentMethod
     ) {
         val userId = auth.currentUser?.uid ?: return
+        val user = auth.currentUser
         _isLoading.value = true
 
-        // NOTE: Replace this block with the actual Razorpay Checkout call when
-        // integrating the Razorpay SDK (com.razorpay:checkout).  The payment
-        // object below is persisted to Firestore to record the transaction.
-        val payment = Payment(
+        pendingBookingId = bookingId
+        pendingPayment = Payment(
             bookingId = bookingId,
             userId = userId,
             serviceName = serviceName,
             amount = amount,
             method = method.value,
-            status = PaymentStatus.PAID.value,
-            transactionId = "TXN_${UUID.randomUUID().toString().take(12).uppercase()}"
+            status = PaymentStatus.PENDING.value,
+            transactionId = ""
         )
 
+        val options = RazorpayUtility.buildCheckoutOptions(
+            amount = amount,
+            serviceName = serviceName,
+            userName = user?.displayName ?: "",
+            userEmail = user?.email ?: "",
+            userPhone = user?.phoneNumber ?: "",
+            method = method
+        )
+        _checkoutOptions.value = options
+    }
+
+    /** Called by PaymentScreen immediately after Checkout.open() to reset the trigger. */
+    fun onCheckoutLaunched() {
+        _checkoutOptions.value = null
+    }
+
+    /** Called indirectly via [RazorpayPaymentHandler] from MainActivity.onPaymentSuccess. */
+    private fun onRazorpaySuccess(razorpayPaymentId: String) {
+        val payment = pendingPayment?.copy(
+            status = PaymentStatus.PAID.value,
+            transactionId = razorpayPaymentId
+        ) ?: return
+        val bookingId = pendingBookingId ?: return
+
+        pendingPayment = null
+        pendingBookingId = null
+
+        // TODO: For production, verify the Razorpay payment signature via a Cloud Function
+        // (see: https://razorpay.com/docs/payments/webhooks/validate-webhook-signature/)
+        // before marking the booking as PAID to prevent client-side manipulation.
         repository.savePayment(payment) { success, _ ->
             if (success) {
-                // Update the corresponding booking's payment status
                 firestore.collection("bookings").document(bookingId)
                     .update("paymentStatus", PaymentStatus.PAID.value)
                     .addOnCompleteListener {
                         _isLoading.value = false
-                        _paymentResult.value = PaymentResult.Success(payment.transactionId)
+                        _paymentResult.value = PaymentResult.Success(razorpayPaymentId)
                     }
             } else {
                 _isLoading.value = false
-                _paymentResult.value = PaymentResult.Failure("Payment failed. Please try again.")
+                _paymentResult.value =
+                    PaymentResult.Failure("Failed to save payment. Please contact support.")
             }
         }
+    }
+
+    /** Called indirectly via [RazorpayPaymentHandler] from MainActivity.onPaymentError. */
+    private fun onRazorpayError(errorCode: Int, errorDescription: String?) {
+        pendingPayment = null
+        pendingBookingId = null
+        _isLoading.value = false
+        _paymentResult.value =
+            PaymentResult.Failure(RazorpayUtility.getErrorMessage(errorCode, errorDescription))
     }
 
     fun clearPaymentResult() {
