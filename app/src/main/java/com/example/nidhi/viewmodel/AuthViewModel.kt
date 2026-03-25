@@ -6,12 +6,22 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.nidhi.data.repository.AuthRepository
 import com.google.firebase.FirebaseException
 import com.google.firebase.FirebaseTooManyRequestsException
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.PhoneAuthCredential
 import com.google.firebase.auth.PhoneAuthProvider
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+
+/** Inactivity period (ms) before the session is automatically invalidated. */
+private const val SESSION_TIMEOUT_MS = 30 * 60 * 1000L // 30 minutes
 
 class AuthViewModel : ViewModel() {
 
@@ -35,15 +45,34 @@ class AuthViewModel : ViewModel() {
     var isPhoneRegistration by mutableStateOf(false)
         private set
 
+    /* Session timeout */
+    private val _sessionExpired = MutableStateFlow(false)
+    val sessionExpired: StateFlow<Boolean> = _sessionExpired.asStateFlow()
+    private var sessionTimeoutJob: Job? = null
+
+    // ── Auth actions ──────────────────────────────────────────────────────────
+
     fun login(email: String, password: String, onResult: (Boolean, String?) -> Unit) {
-        repository.login(email, password, onResult)
+        repository.login(email, password) { success, message ->
+            if (success) resetSessionTimer()
+            onResult(success, message)
+        }
     }
 
-    fun register(email: String, password: String, onResult: (Boolean, String?) -> Unit) {
-        repository.register(email, password, onResult)
+    fun register(
+        email: String,
+        password: String,
+        name: String = "",
+        onResult: (Boolean, String?) -> Unit
+    ) {
+        repository.register(email, password, name) { success, message ->
+            if (success) resetSessionTimer()
+            onResult(success, message)
+        }
     }
 
     fun logout() {
+        sessionTimeoutJob?.cancel()
         repository.logout()
     }
 
@@ -63,6 +92,29 @@ class AuthViewModel : ViewModel() {
         pendingDisplayName = ""
         isPhoneRegistration = false
     }
+
+    // ── Session timeout ───────────────────────────────────────────────────────
+
+    /**
+     * Call this whenever the user performs an action to reset the inactivity timer.
+     * Must be called after a successful login to start the first countdown.
+     */
+    fun resetSessionTimer() {
+        sessionTimeoutJob?.cancel()
+        sessionTimeoutJob = viewModelScope.launch {
+            delay(SESSION_TIMEOUT_MS)
+            Log.d("AUTH", "Session timed out due to inactivity")
+            _sessionExpired.value = true
+            repository.logout()
+        }
+    }
+
+    /** Clears the session-expired flag after the app has handled the event. */
+    fun clearSessionExpired() {
+        _sessionExpired.value = false
+    }
+
+    // ── OTP flow ──────────────────────────────────────────────────────────────
 
     /**
      * Send OTP to the given phone number.
@@ -99,6 +151,7 @@ class AuthViewModel : ViewModel() {
                                 }
                             }
                         }
+                        resetSessionTimer()
                         isOtpAutoVerified = true
                     } else {
                         otpError = message
@@ -152,9 +205,11 @@ class AuthViewModel : ViewModel() {
                 val uid = repository.getCurrentUser()?.uid
                 if (isPhoneRegistration && uid != null) {
                     repository.saveUserToFirestore(uid, pendingDisplayName, phoneNumber) { _, _ ->
+                        resetSessionTimer()
                         onResult(true, null)
                     }
                 } else {
+                    resetSessionTimer()
                     onResult(true, null)
                 }
             } else {

@@ -19,28 +19,70 @@ service cloud.firestore {
       return isSignedIn() && providerId == request.auth.uid;
     }
 
+    // Input validation helpers
+    function isValidStatus(status) {
+      return status in ["pending", "accepted", "rejected", "on_the_way", "arrived", "completed", "cancelled"];
+    }
+
+    function isValidPaymentStatus(status) {
+      return status in ["pending", "paid", "failed", "refunded"];
+    }
+
+    function isValidRole(role) {
+      return role in ["customer", "provider"];
+    }
+
     match /bookings/{bookingId} {
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read: if isOwner(resource.data.userId) || isAssignedProvider(resource.data.providerId) || isProvider();
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && isValidStatus(request.resource.data.status)
+        && request.resource.data.amount is number
+        && request.resource.data.amount > 0
+        && request.resource.data.address is string
+        && request.resource.data.address.size() > 0
+        && request.resource.data.address.size() <= 500;
+
+      allow read: if isOwner(resource.data.userId)
+        || isAssignedProvider(resource.data.providerId)
+        || isProvider();
 
       // Customer can only update their own address/notes/schedule while booking is still pending.
       allow update: if isOwner(resource.data.userId)
         && resource.data.status == "pending"
-        && request.resource.data.providerId == resource.data.providerId;
+        && request.resource.data.providerId == resource.data.providerId
+        && request.resource.data.userId == resource.data.userId;
 
-      // Provider-side lifecycle updates.
+      // Provider-side lifecycle updates — status transitions only.
       allow update: if isProvider() || isAssignedProvider(resource.data.providerId);
     }
 
+    // Lightweight booking list documents (denormalized, cost-efficient list view)
+    match /bookings_lite/{bookingId} {
+      allow read: if isSignedIn()
+        && (resource.data.userId == request.auth.uid
+            || resource.data.providerId == request.auth.uid
+            || isProvider());
+      allow write: if false; // Cloud Functions only
+    }
+
     match /payments/{paymentId} {
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isProvider());
-      allow update, delete: if false;
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.amount is number
+        && request.resource.data.amount > 0
+        && isValidPaymentStatus(request.resource.data.status);
+      allow read: if isSignedIn()
+        && (resource.data.userId == request.auth.uid || isProvider());
+      allow update, delete: if false; // Immutable audit trail
     }
 
     match /users/{userId} {
       allow read: if isOwner(userId) || isProvider();
-      allow create, update: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && isValidRole(request.resource.data.role);
+      allow update: if isOwner(userId)
+        && (!request.resource.data.keys().hasAny(["role"])
+            || request.resource.data.role == resource.data.role); // role is immutable client-side
 
       match /devices/{tokenId} {
         allow read, write: if isOwner(userId);
@@ -68,6 +110,7 @@ service cloud.firestore {
             || resource.data.providerId == request.auth.uid);
       allow create: if isSignedIn()
         && request.resource.data.customerId == request.auth.uid
+        && request.resource.data.rating is number
         && request.resource.data.rating >= 1
         && request.resource.data.rating <= 5;
       allow update, delete: if false;
@@ -76,6 +119,11 @@ service cloud.firestore {
     // In-app notifications: each user reads and manages their own.
     match /notifications/{userId}/messages/{notificationId} {
       allow read, write: if isOwner(userId);
+    }
+
+    // Rate limit tracking (written by Cloud Functions only).
+    match /rate_limits/{docId} {
+      allow read, write: if false;
     }
   }
 }
