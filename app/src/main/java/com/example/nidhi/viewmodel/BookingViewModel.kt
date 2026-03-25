@@ -6,9 +6,11 @@ import com.example.nidhi.data.model.BookingStatus
 import com.example.nidhi.data.model.PaymentStatus
 import com.example.nidhi.data.repository.BookingRepository
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentSnapshot
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+
 class BookingViewModel : ViewModel() {
 
     private val repository = BookingRepository()
@@ -23,10 +25,42 @@ class BookingViewModel : ViewModel() {
     private val _bookingResult = MutableStateFlow<BookingResult?>(null)
     val bookingResult: StateFlow<BookingResult?> = _bookingResult.asStateFlow()
 
+    /** True when there are more pages to load. */
+    private val _hasMorePages = MutableStateFlow(false)
+    val hasMorePages: StateFlow<Boolean> = _hasMorePages.asStateFlow()
+
+    /** Cursor pointing to the last document fetched; null means start from the beginning. */
+    private var lastDocument: DocumentSnapshot? = null
+
+    /**
+     * Load (or reload) the first page of the user's bookings.
+     * Resets pagination state.
+     */
     fun loadUserBookings() {
         val userId = auth.currentUser?.uid ?: return
-        repository.getUserBookings(userId) { bookings ->
-            _bookings.value = bookings
+        _isLoading.value = true
+        lastDocument = null
+        repository.getUserBookingsPaged(userId, afterDocument = null) { page, cursor ->
+            _bookings.value = page
+            lastDocument = cursor
+            _hasMorePages.value = page.size >= BookingRepository.PAGE_SIZE
+            _isLoading.value = false
+        }
+    }
+
+    /**
+     * Append the next page of bookings to the existing list.
+     * No-op if there are no more pages or a load is already in progress.
+     */
+    fun loadNextPage() {
+        if (!_hasMorePages.value || _isLoading.value) return
+        val userId = auth.currentUser?.uid ?: return
+        _isLoading.value = true
+        repository.getUserBookingsPaged(userId, afterDocument = lastDocument) { page, cursor ->
+            _bookings.value = _bookings.value + page
+            lastDocument = cursor
+            _hasMorePages.value = page.size >= BookingRepository.PAGE_SIZE
+            _isLoading.value = false
         }
     }
 

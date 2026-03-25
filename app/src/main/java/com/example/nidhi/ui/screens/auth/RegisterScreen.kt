@@ -141,6 +141,11 @@ fun RegisterScreen(navController: NavController) {
                         error = "Fields cannot be empty"
                         return@Button
                     }
+                    val pwError = validatePassword(password)
+                    if (pwError != null) {
+                        error = pwError
+                        return@Button
+                    }
                     viewModel.register(email, password) { success, message ->
                         if (success) {
                             navController.navigate(Routes.HOME) {
@@ -234,4 +239,17 @@ fun RegisterScreen(navController: NavController) {
             )
         }
     }
+}
+
+/**
+ * Returns an error message if [password] does not meet minimum strength requirements,
+ * or null if the password is acceptable.
+ *
+ * Rules: at least 8 characters, one uppercase letter, one digit.
+ */
+private fun validatePassword(password: String): String? {
+    if (password.length < 8) return "Password must be at least 8 characters"
+    if (!password.any { it.isUpperCase() }) return "Password must contain at least one uppercase letter"
+    if (!password.any { it.isDigit() }) return "Password must contain at least one digit"
+    return null
 }

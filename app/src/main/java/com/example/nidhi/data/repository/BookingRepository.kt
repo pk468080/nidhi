@@ -4,6 +4,7 @@ import com.example.nidhi.data.model.Booking
 import com.example.nidhi.data.model.BookingStatus
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
@@ -13,6 +14,10 @@ class BookingRepository {
     private val firestore = FirebaseFirestore.getInstance()
     private val realtimeDb = FirebaseDatabase.getInstance()
 
+    companion object {
+        const val PAGE_SIZE = 10
+    }
+
     fun createBooking(booking: Booking, onResult: (Boolean, String?) -> Unit) {
         val docRef = firestore.collection("bookings").document()
         val bookingWithId = booking.copy(bookingId = docRef.id)
@@ -21,15 +26,49 @@ class BookingRepository {
             .addOnFailureListener { onResult(false, null) }
     }
 
+    /**
+     * One-time paginated fetch of bookings for a user.
+     * Pass [afterDocument] as the last document from the previous page for cursor-based pagination.
+     * This replaces the continuous addSnapshotListener to avoid unbounded read costs.
+     */
+    fun getUserBookingsPaged(
+        userId: String,
+        afterDocument: DocumentSnapshot? = null,
+        onResult: (List<Booking>, DocumentSnapshot?) -> Unit
+    ) {
+        var query = firestore.collection("bookings")
+            .whereEqualTo("userId", userId)
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .limit(PAGE_SIZE.toLong())
+
+        if (afterDocument != null) {
+            query = query.startAfter(afterDocument)
+        }
+
+        query.get()
+            .addOnSuccessListener { snapshot ->
+                val bookings = snapshot.documents.mapNotNull { it.toObject(Booking::class.java) }
+                val lastDoc = snapshot.documents.lastOrNull()
+                onResult(bookings, lastDoc)
+            }
+            .addOnFailureListener { onResult(emptyList(), null) }
+    }
+
+    /**
+     * Legacy one-time get for users who haven't migrated to pagination yet.
+     * Kept for backward compatibility — replaces the old addSnapshotListener.
+     */
     fun getUserBookings(userId: String, onResult: (List<Booking>) -> Unit) {
         firestore.collection("bookings")
             .whereEqualTo("userId", userId)
-            .addSnapshotListener { snapshot, _ ->
-                val bookings = snapshot?.documents?.mapNotNull {
-                    it.toObject(Booking::class.java)
-                } ?: emptyList()
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .limit(PAGE_SIZE.toLong())
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val bookings = snapshot.documents.mapNotNull { it.toObject(Booking::class.java) }
                 onResult(bookings)
             }
+            .addOnFailureListener { onResult(emptyList()) }
     }
 
     fun updateBookingStatus(bookingId: String, status: BookingStatus, onResult: (Boolean) -> Unit) {

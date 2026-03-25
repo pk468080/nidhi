@@ -3,6 +3,7 @@ package com.example.nidhi.data.repository
 import com.example.nidhi.data.model.Payment
 import com.example.nidhi.data.model.PaymentStatus
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 
 class PaymentRepository {
 
@@ -16,15 +17,21 @@ class PaymentRepository {
             .addOnFailureListener { onResult(false, null) }
     }
 
+    /**
+     * One-time fetch of the user's payment history (most recent 50 records).
+     * Replaced the previous addSnapshotListener to avoid continuous read charges.
+     */
     fun getUserTransactions(userId: String, onResult: (List<Payment>) -> Unit) {
         firestore.collection("payments")
             .whereEqualTo("userId", userId)
-            .addSnapshotListener { snapshot, _ ->
-                val payments = snapshot?.documents?.mapNotNull {
-                    it.toObject(Payment::class.java)
-                } ?: emptyList()
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .limit(50)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val payments = snapshot.documents.mapNotNull { it.toObject(Payment::class.java) }
                 onResult(payments)
             }
+            .addOnFailureListener { onResult(emptyList()) }
     }
 
     fun updatePaymentStatus(
