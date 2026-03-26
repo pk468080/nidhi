@@ -94,7 +94,7 @@ class PaymentViewModel : ViewModel() {
             serviceName = serviceName,
             userName = user.displayName ?: "",
             userEmail = user.email ?: "",
-›            userPhone = user.phoneNumber ?: ""
+            userPhone = user.phoneNumber ?: ""
         )
         _checkoutOptions.value = options
     }
