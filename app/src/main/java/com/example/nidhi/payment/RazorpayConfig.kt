@@ -12,7 +12,7 @@ package com.example.nidhi.payment
  */
 object RazorpayConfig {
     /** Razorpay Key ID – replace with your own key before testing. */
-    const val KEY_ID = "rzp_test_YOUR_KEY_ID"
+    const val KEY_ID = "rzp_test_SVrGaT8x6ExP4i"
 
     /** ISO 4217 currency code used for all transactions. */
     const val CURRENCY = "INR"

@@ -1,5 +1,6 @@
 package com.example.nidhi.navigation
 
+import android.net.Uri
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.navigation.compose.*
@@ -13,10 +14,9 @@ import com.example.nidhi.ui.screens.debug.FlowChecklistScreen
 import com.example.nidhi.ui.screens.main.MainScreen
 import com.example.nidhi.ui.screens.payment.PaymentScreen
 import com.example.nidhi.ui.screens.payment.TransactionHistoryScreen
-import com.example.nidhi.ui.screens.provider.ProviderPanelScreen
 import com.example.nidhi.ui.screens.services.SearchScreen
 import com.example.nidhi.ui.screens.services.ServiceDetailsScreen
-import com.example.nidhi.ui.screens.splash.SplashScreen
+import com.example.nidhi.ui.theme.SplashScreen
 import com.example.nidhi.ui.screens.tracking.TrackingScreen
 
 @Composable
@@ -88,7 +88,7 @@ fun NavGraph(deepLinkBookingId: String? = null) {
             route = Routes.PAYMENT + "/{bookingId}/{serviceName}/{amount}"
         ) { backStackEntry ->
             val bookingId = backStackEntry.arguments?.getString("bookingId") ?: ""
-            val serviceName = backStackEntry.arguments?.getString("serviceName") ?: ""
+            val serviceName = Uri.decode(backStackEntry.arguments?.getString("serviceName") ?: "")
             val amount = backStackEntry.arguments?.getString("amount")?.toDoubleOrNull() ?: 0.0
             PaymentScreen(
                 bookingId = bookingId,
@@ -100,10 +100,6 @@ fun NavGraph(deepLinkBookingId: String? = null) {
 
         composable(Routes.TRANSACTIONS) {
             TransactionHistoryScreen(navController)
-        }
-
-        composable(Routes.PROVIDER_PANEL) {
-            ProviderPanelScreen(navController = navController)
         }
 
         composable(Routes.FLOW_CHECKLIST) {
@@ -118,4 +114,3 @@ fun NavGraph(deepLinkBookingId: String? = null) {
         }
     }
 }
-

@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.location.Address
 import android.location.Geocoder
 import android.location.Location
+import android.net.Uri
 import android.os.Build
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -135,8 +136,9 @@ fun BookingScreen(
         when (val result = bookingResult) {
             is BookingResult.Success -> {
                 viewModel.clearBookingResult()
+                val encodedServiceName = Uri.encode(result.serviceName)
                 navController.navigate(
-                    Routes.PAYMENT + "/${result.bookingId}/${result.serviceName.replace(" ", "_")}/${result.amount.toInt()}"
+                    Routes.PAYMENT + "/${result.bookingId}/${encodedServiceName}/${result.amount.toInt()}"
                 )
             }
             is BookingResult.Failure -> {

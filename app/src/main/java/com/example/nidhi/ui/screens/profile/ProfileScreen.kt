@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.nidhi.navigation.Routes
 import com.example.nidhi.ui.theme.AppSpacing
@@ -76,7 +77,7 @@ fun ProfileScreen(onLogout: () -> Unit, navController: NavController? = null) {
             }
         }
 
-        // Transaction history
+        // Navigation options
         if (navController != null) {
             OutlinedButton(
                 onClick = { navController.navigate(Routes.TRANSACTIONS) },
@@ -86,16 +87,6 @@ fun ProfileScreen(onLogout: () -> Unit, navController: NavController? = null) {
                 Icon(Icons.Default.Receipt, contentDescription = null)
                 Spacer(modifier = Modifier.width(AppSpacing.small))
                 Text("Transaction History")
-            }
-
-            OutlinedButton(
-                onClick = { navController.navigate(Routes.PROVIDER_PANEL) },
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium
-            ) {
-                Icon(Icons.Default.Engineering, contentDescription = null)
-                Spacer(modifier = Modifier.width(AppSpacing.small))
-                Text("Provider Panel (Temporary)")
             }
 
             OutlinedButton(

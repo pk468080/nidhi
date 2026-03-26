@@ -48,9 +48,19 @@ fun PaymentScreen(
     LaunchedEffect(checkoutOptions) {
         val options = checkoutOptions ?: return@LaunchedEffect
         val activity = context as? ComponentActivity ?: return@LaunchedEffect
-        viewModel.onCheckoutLaunched()
-        checkout.setKeyID(RazorpayConfig.KEY_ID)
-        checkout.open(activity, options)
+        if (RazorpayConfig.KEY_ID.isBlank()) {
+            viewModel.onCheckoutLaunchFailed("Razorpay key is missing. Please contact support.")
+            viewModel.onCheckoutLaunched()
+            return@LaunchedEffect
+        }
+
+        try {
+            viewModel.onCheckoutLaunched()
+            checkout.setKeyID(RazorpayConfig.KEY_ID)
+            checkout.open(activity, options)
+        } catch (_: Exception) {
+            viewModel.onCheckoutLaunchFailed("Unable to start payment. Please try again.")
+        }
     }
 
     LaunchedEffect(paymentResult) {
@@ -109,7 +119,7 @@ fun PaymentScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = serviceName.replace("_", " "),
+                            text = serviceName,
                             style = MaterialTheme.typography.bodyMedium
                         )
                         Text(

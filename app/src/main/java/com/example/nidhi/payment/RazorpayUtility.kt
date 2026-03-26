@@ -1,6 +1,5 @@
 package com.example.nidhi.payment
 
-import com.example.nidhi.data.model.PaymentMethod
 import org.json.JSONObject
 
 /** Helper functions for building Razorpay checkout options and mapping error codes. */
@@ -14,15 +13,13 @@ object RazorpayUtility {
      * @param userName     Display name shown in the prefill section.
      * @param userEmail    Email shown in the prefill section (may be empty).
      * @param userPhone    Phone number shown in the prefill section (may be empty).
-     * @param method       Preferred payment method used to suggest a default tab.
      */
     fun buildCheckoutOptions(
         amount: Double,
         serviceName: String,
         userName: String = "",
         userEmail: String = "",
-        userPhone: String = "",
-        method: PaymentMethod = PaymentMethod.UPI
+        userPhone: String = ""
     ): JSONObject {
         val amountInPaise = (amount * RazorpayConfig.AMOUNT_MULTIPLIER).toLong()
 
@@ -36,7 +33,7 @@ object RazorpayUtility {
             put("name", RazorpayConfig.COMPANY_NAME)
             put(
                 "description",
-                "${RazorpayConfig.DESCRIPTION_PREFIX}${serviceName.replace("_", " ")}"
+                "${RazorpayConfig.DESCRIPTION_PREFIX}$serviceName"
             )
             put("currency", RazorpayConfig.CURRENCY)
             put("amount", amountInPaise)

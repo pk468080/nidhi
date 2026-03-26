@@ -61,8 +61,15 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
     // ── Razorpay callbacks ──────────────────────────────────────────────────
 
     override fun onPaymentSuccess(razorpayPaymentId: String?, paymentData: PaymentData?) {
-        if (razorpayPaymentId.isNullOrBlank()) return
-        RazorpayPaymentHandler.handleSuccess(razorpayPaymentId)
+        val resolvedPaymentId = razorpayPaymentId?.takeIf { it.isNotBlank() }
+            ?: paymentData?.paymentId?.takeIf { it.isNotBlank() }
+
+        if (resolvedPaymentId == null) {
+            RazorpayPaymentHandler.handleError(-1, "Payment succeeded but transaction id was missing")
+            return
+        }
+
+        RazorpayPaymentHandler.handleSuccess(resolvedPaymentId)
     }
 
     override fun onPaymentError(errorCode: Int, errorDescription: String?, paymentData: PaymentData?) {

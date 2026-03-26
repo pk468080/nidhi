@@ -70,8 +70,12 @@ class PaymentViewModel : ViewModel() {
         amount: Double,
         method: PaymentMethod
     ) {
-        val userId = auth.currentUser?.uid ?: return
         val user = auth.currentUser
+        if (user == null) {
+            _paymentResult.value = PaymentResult.Failure("Please log in again and retry payment")
+            return
+        }
+        val userId = user.uid
         _isLoading.value = true
 
         pendingBookingId = bookingId
@@ -88,10 +92,9 @@ class PaymentViewModel : ViewModel() {
         val options = RazorpayUtility.buildCheckoutOptions(
             amount = amount,
             serviceName = serviceName,
-            userName = user?.displayName ?: "",
-            userEmail = user?.email ?: "",
-            userPhone = user?.phoneNumber ?: "",
-            method = method
+            userName = user.displayName ?: "",
+            userEmail = user.email ?: "",
+›            userPhone = user.phoneNumber ?: ""
         )
         _checkoutOptions.value = options
     }
@@ -99,6 +102,14 @@ class PaymentViewModel : ViewModel() {
     /** Called by PaymentScreen immediately after Checkout.open() to reset the trigger. */
     fun onCheckoutLaunched() {
         _checkoutOptions.value = null
+    }
+
+    /** Called when Checkout.open() throws before the Razorpay UI is shown. */
+    fun onCheckoutLaunchFailed(message: String) {
+        pendingPayment = null
+        pendingBookingId = null
+        _isLoading.value = false
+        _paymentResult.value = PaymentResult.Failure(message)
     }
 
     /** Called indirectly via [RazorpayPaymentHandler] from MainActivity.onPaymentSuccess. */
@@ -119,9 +130,13 @@ class PaymentViewModel : ViewModel() {
             if (success) {
                 firestore.collection("bookings").document(bookingId)
                     .update("paymentStatus", PaymentStatus.PAID.value)
-                    .addOnCompleteListener {
+                    .addOnCompleteListener { task ->
                         _isLoading.value = false
-                        _paymentResult.value = PaymentResult.Success(razorpayPaymentId)
+                        _paymentResult.value = if (task.isSuccessful) {
+                            PaymentResult.Success(razorpayPaymentId)
+                        } else {
+                            PaymentResult.Failure("Payment captured, but booking status sync failed. Please refresh.")
+                        }
                     }
             } else {
                 _isLoading.value = false
