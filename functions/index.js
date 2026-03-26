@@ -4,6 +4,7 @@ const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https")
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { CloudTasksClient } = require("@google-cloud/tasks");
 const { haversineKm, findBestProvider } = require("./matching");
+const { VALID_TRANSITIONS, updateBookingStatus: smUpdateBookingStatus } = require("./statemachine");
 
 admin.initializeApp();
 
@@ -105,6 +106,19 @@ function addToRejectedProviders(existing, newId) {
  * @param {number}   attemptNum      1-based attempt counter
  */
 async function assignProvider(bookingId, booking, rejectedIds, attemptNum) {
+  const bookingRef = admin.firestore().collection("bookings").doc(bookingId);
+
+  // Guard against concurrent invocations: only proceed if no provider has been
+  // assigned yet. The transaction makes this check-and-lock atomic.
+  const shouldProceed = await admin.firestore().runTransaction(async (tx) => {
+    const snap = await tx.get(bookingRef);
+    if (!snap.exists) return false;
+    const current = snap.data();
+    if (current.assignedProviderId) return false; // already assigned
+    return true;
+  });
+  if (!shouldProceed) return;
+
   const serviceType = booking.serviceType || booking.serviceName || "general";
 
   const providerDoc = await findBestProvider(
@@ -114,7 +128,6 @@ async function assignProvider(bookingId, booking, rejectedIds, attemptNum) {
     booking.customerLng ?? null
   );
 
-  const bookingRef = admin.firestore().collection("bookings").doc(bookingId);
   const now = Date.now();
 
   if (!providerDoc) {
@@ -321,7 +334,11 @@ exports.onBookingCreated = onDocumentCreated("bookings/{bookingId}", async (even
   // Create the lightweight list-view document.
   await syncBookingsLite(bookingId, booking);
 
-
+  // If the booking was created already paid (e.g. pre-paid flow), assign a provider immediately.
+  if (booking.paymentStatus === "paid" && !booking.assignedProviderId) {
+    const rejectedIds = Array.isArray(booking.rejectedProviders) ? booking.rejectedProviders : [];
+    await assignProvider(bookingId, booking, rejectedIds, 1);
+  }
 });
 
 // ─── onBookingStatusChanged ──────────────────────────────────────────────────
@@ -335,11 +352,25 @@ exports.onBookingStatusChanged = onDocumentUpdated("bookings/{bookingId}", async
   const bookingId = event.params.bookingId;
   const beforeStatus = before.status || "";
   const afterStatus  = after.status  || "";
+  const beforePaymentStatus = before.paymentStatus || "";
+  const afterPaymentStatus  = after.paymentStatus  || "";
 
-  if (beforeStatus === afterStatus) return;
+  const statusChanged = beforeStatus !== afterStatus;
+  const paymentStatusChanged = beforePaymentStatus !== afterPaymentStatus;
+
+  if (!statusChanged && !paymentStatusChanged) return;
 
   // Sync bookings_lite on any update.
   await syncBookingsLite(bookingId, after);
+
+  // When payment is confirmed, trigger provider assignment if not already assigned.
+  if (paymentStatusChanged && afterPaymentStatus === "paid" && !after.assignedProviderId) {
+    const rejectedIds = Array.isArray(after.rejectedProviders) ? after.rejectedProviders : [];
+    const attemptNum = after.assignmentAttempt || 1;
+    await assignProvider(bookingId, after, rejectedIds, attemptNum);
+  }
+
+  if (!statusChanged) return;
 
   // Validate state-machine transition (log only — enforcement is in Cloud Functions callable).
   const allowed = VALID_TRANSITIONS[beforeStatus] || [];
@@ -716,10 +747,12 @@ exports.onPaymentSuccess = onRequest(async (req, res) => {
     return;
   }
 
+  let bookingData = null;
   await admin.firestore().runTransaction(async (tx) => {
     const bookingRef = admin.firestore().collection("bookings").doc(bookingId);
     const snap = await tx.get(bookingRef);
     if (!snap.exists) return;
+    bookingData = snap.data();
     tx.update(bookingRef, { paymentStatus: "paid", transactionId: paymentId });
   });
 
@@ -736,6 +769,18 @@ exports.onPaymentSuccess = onRequest(async (req, res) => {
     bookingId,
     type: "payment_confirmed"
   });
+
+  // Trigger provider assignment using data already read in the transaction above.
+  if (bookingData && !bookingData.assignedProviderId) {
+    const rejectedIds = Array.isArray(bookingData.rejectedProviders) ? bookingData.rejectedProviders : [];
+    const attemptNum = bookingData.assignmentAttempt || 1;
+    await assignProvider(
+      bookingId,
+      { ...bookingData, paymentStatus: "paid", transactionId: paymentId },
+      rejectedIds,
+      attemptNum
+    );
+  }
 
   res.status(200).json({ success: true });
 });
@@ -765,9 +810,6 @@ exports.onReviewCreated = onDocumentCreated("reviews/{reviewId}", async (event) 
     { rating: Math.round(average * 10) / 10, reviewCount: ratings.length },
     { merge: true }
   );
-});
-
-
 });
 
 // ─── cleanupExpiredNotifications (scheduled) ─────────────────────────────────
