@@ -41,6 +41,7 @@ object RazorpayUtility {
             put("currency", RazorpayConfig.CURRENCY)
             put("amount", amountInPaise)
             put("prefill", prefill)
+            put("method", method.razorpayKey)
         }
     }
 

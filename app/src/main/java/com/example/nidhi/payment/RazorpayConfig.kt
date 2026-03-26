@@ -1,18 +1,27 @@
 package com.example.nidhi.payment
 
+import com.example.nidhi.BuildConfig
+
 /**
  * Razorpay API configuration.
  *
- * Replace KEY_ID with your actual Key ID from https://dashboard.razorpay.com/app/keys.
- * Use a "rzp_test_..." key for development and a "rzp_live_..." key for production.
+ * Set your Razorpay Key ID in `local.properties` (project root, already git-ignored):
  *
- * IMPORTANT: Do NOT commit live keys to source control. Inject them via a secure
- * mechanism such as a secrets manager, CI/CD environment variables, or an encrypted
- * local.properties file that is excluded from version control.
+ *   razorpay.keyId=rzp_test_xxxxxxxxxxxx
+ *
+ * Use a "rzp_test_..." key for development and a "rzp_live_..." key for production.
+ * The value is injected at build time via BuildConfig.RAZORPAY_KEY_ID – no source
+ * changes are needed to swap keys between environments.
+ *
+ * For CI/CD, set the Gradle property `razorpay.keyId` via:
+ *   - A `local.properties` file generated from a secret
+ *   - Or by passing `-Prazorpay.keyId=...` on the Gradle command line
+ *
+ * IMPORTANT: Do NOT commit live keys to source control.
  */
 object RazorpayConfig {
-    /** Razorpay Key ID – replace with your own key before testing. */
-    const val KEY_ID = "rzp_test_YOUR_KEY_ID"
+    /** Razorpay Key ID – set via `razorpay.keyId` in local.properties. */
+    val KEY_ID: String get() = BuildConfig.RAZORPAY_KEY_ID
 
     /** ISO 4217 currency code used for all transactions. */
     const val CURRENCY = "INR"
