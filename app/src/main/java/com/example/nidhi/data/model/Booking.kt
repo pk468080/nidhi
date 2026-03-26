@@ -16,9 +16,7 @@ data class Booking(
     val paymentStatus: String = PaymentStatus.PENDING.value,
     val notes: String = "",
     val timestamp: Long = System.currentTimeMillis(),
-    val statusHistory: List<Map<String, Any>> = emptyList(),
-    val assignmentAttempt: Int = 1,
-    val failureReason: String = ""
+
 )
 
 enum class BookingStatus(val value: String, val displayName: String) {
@@ -28,7 +26,8 @@ enum class BookingStatus(val value: String, val displayName: String) {
     ON_THE_WAY("on_the_way", "Provider On the Way"),
     ARRIVED("arrived", "Provider Arrived"),
     COMPLETED("completed", "Completed"),
-    CANCELLED("cancelled", "Cancelled")
+    CANCELLED("cancelled", "Cancelled"),
+    UNASSIGNED("unassigned", "No Provider Found")
 }
 
 enum class PaymentStatus(val value: String, val displayName: String) {

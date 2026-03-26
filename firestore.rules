@@ -21,7 +21,7 @@ service cloud.firestore {
 
     // Input validation helpers
     function isValidStatus(status) {
-      return status in ["pending", "accepted", "rejected", "on_the_way", "arrived", "completed", "cancelled"];
+      return status in ["pending", "accepted", "rejected", "on_the_way", "arrived", "completed", "cancelled", "unassigned"];
     }
 
     function isValidPaymentStatus(status) {
