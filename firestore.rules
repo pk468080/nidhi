@@ -125,6 +125,11 @@ service cloud.firestore {
     match /rate_limits/{docId} {
       allow read, write: if false;
     }
+
+    // Idempotency keys — written and read by Cloud Functions only.
+    match /idempotency_keys/{keyId} {
+      allow read, write: if false;
+    }
   }
 }
 

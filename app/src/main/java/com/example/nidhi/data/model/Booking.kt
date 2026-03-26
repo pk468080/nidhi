@@ -15,7 +15,10 @@ data class Booking(
     val amount: Double = 0.0,
     val paymentStatus: String = PaymentStatus.PENDING.value,
     val notes: String = "",
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val statusHistory: List<Map<String, Any>> = emptyList(),
+    val assignmentAttempt: Int = 1,
+    val failureReason: String = ""
 )
 
 enum class BookingStatus(val value: String, val displayName: String) {
