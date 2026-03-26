@@ -443,6 +443,35 @@ exports.onReviewCreated = onDocumentCreated("reviews/{reviewId}", async (event) 
   );
 });
 
+// ─── cleanupOldTracking (scheduled) ──────────────────────────────────────────
+
+/**
+ * Hourly job that removes tracking nodes that have not been updated in the last
+ * 24 hours.  This prevents stale GPS data from accumulating in the Realtime DB.
+ */
+exports.cleanupOldTracking = onSchedule("every 60 minutes", async () => {
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000; // 24 hours ago
+
+  const trackingRef = admin.database().ref("tracking");
+  const snapshot = await trackingRef
+    .orderByChild("updatedAt")
+    .endAt(cutoff)
+    .once("value");
+
+  if (!snapshot.exists()) {
+    console.log("No stale tracking records to clean up.");
+    return;
+  }
+
+  const updates = {};
+  snapshot.forEach((child) => {
+    updates[child.key] = null; // null = delete in RTDB multi-location update
+  });
+
+  await trackingRef.update(updates);
+  console.log(`Deleted ${Object.keys(updates).length} stale tracking records.`);
+});
+
 // ─── cleanupExpiredNotifications (scheduled) ─────────────────────────────────
 
 exports.cleanupExpiredNotifications = onSchedule("every 24 hours", async () => {
