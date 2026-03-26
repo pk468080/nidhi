@@ -7,7 +7,6 @@ const { haversineKm, findBestProvider } = require("./matching");
 
 admin.initializeApp();
 
-// ─── Constants ────────────────────────────────────────────────────────────────
 
 const MAX_ASSIGNMENT_ATTEMPTS = 3;
 /** Acceptance window in seconds before timeout triggers a retry. */
@@ -269,6 +268,50 @@ async function scheduleRetryTask(bookingId, nextAttempt, rejectedIds, delaySecon
 
 // ─── onBookingCreated ────────────────────────────────────────────────────────
 
+exports.createBooking = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
+
+  const { idempotencyKey, bookingData } = request.data;
+  if (!idempotencyKey || typeof idempotencyKey !== "string") {
+    throw new HttpsError("invalid-argument", "idempotencyKey is required.");
+  }
+  if (!bookingData || typeof bookingData !== "object") {
+    throw new HttpsError("invalid-argument", "bookingData is required.");
+  }
+
+  const db = admin.firestore();
+  const idempotencyRef = db.collection("idempotency_keys").doc(idempotencyKey);
+
+  return db.runTransaction(async (tx) => {
+    const existing = await tx.get(idempotencyRef);
+    if (existing.exists) {
+      // Already processed — return the cached result.
+      return existing.data().result;
+    }
+
+    const bookingRef = db.collection("bookings").doc();
+    const now = Date.now();
+    const newBooking = {
+      ...bookingData,
+      bookingId:     bookingRef.id,
+      userId:        uid,
+      status:        "pending",
+      paymentStatus: "pending",
+      timestamp:     now,
+      createdAt:     now,
+      assignmentAttempt: 1,
+      statusHistory: [{ from: null, to: "pending", timestamp: now, actor: uid }]
+    };
+
+    tx.set(bookingRef, newBooking);
+    tx.set(idempotencyRef, { result: { bookingId: bookingRef.id }, timestamp: now });
+
+    return { bookingId: bookingRef.id };
+  });
+});
+
+
 exports.onBookingCreated = onDocumentCreated("bookings/{bookingId}", async (event) => {
   const booking = event.data?.data();
   if (!booking) return;
@@ -278,32 +321,11 @@ exports.onBookingCreated = onDocumentCreated("bookings/{bookingId}", async (even
   // Create the lightweight list-view document.
   await syncBookingsLite(bookingId, booking);
 
-  // Initialise assignment tracking fields.
-  await admin.firestore().collection("bookings").doc(bookingId).update({
-    assignmentAttempt: 0,
-    rejectedProviders: [],
-    assignmentHistory: []
-  });
 
-  // First provider assignment attempt.
-  await assignProvider(bookingId, booking, [], 1);
 });
 
 // ─── onBookingStatusChanged ──────────────────────────────────────────────────
 
-/**
- * Valid state-machine transitions. Key = from, Value = allowed "to" states.
- */
-const VALID_TRANSITIONS = {
-  pending:     ["accepted", "rejected", "cancelled", "unassigned"],
-  accepted:    ["on_the_way", "cancelled"],
-  on_the_way:  ["arrived", "cancelled"],
-  arrived:     ["completed", "cancelled"],
-  completed:   [],
-  rejected:    [],
-  cancelled:   [],
-  unassigned:  ["cancelled"]
-};
 
 exports.onBookingStatusChanged = onDocumentUpdated("bookings/{bookingId}", async (event) => {
   const before = event.data?.before?.data();
@@ -382,7 +404,14 @@ exports.acceptBooking = onCall(async (request) => {
       providerId: uid,
       providerName: provider.name || "",
       providerPhone: provider.phone || "",
-      providerRating: provider.rating || 0
+      providerRating: provider.rating || 0,
+      updatedAt: Date.now(),
+      statusHistory: admin.firestore.FieldValue.arrayUnion({
+        from: "pending",
+        to: "accepted",
+        timestamp: Date.now(),
+        actor: uid
+      })
     });
   });
 
@@ -620,17 +649,8 @@ exports.updateBookingStatus = onCall(async (request) => {
     throw new HttpsError("permission-denied", "Customers can only cancel bookings.");
   }
 
-  // Validate transition.
-  const fromStatus = booking.status || "pending";
-  const validNext = VALID_TRANSITIONS[fromStatus] || [];
-  if (!validNext.includes(status)) {
-    throw new HttpsError(
-      "failed-precondition",
-      `Cannot transition booking from "${fromStatus}" to "${status}".`
-    );
-  }
-
-  await bookingRef.update({ status });
+  // Validate transition and update with audit trail via state machine module.
+  await smUpdateBookingStatus(bookingId, status, uid);
   return { success: true };
 });
 
