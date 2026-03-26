@@ -19,6 +19,7 @@ import com.example.nidhi.ui.theme.Success
 import com.example.nidhi.ui.theme.Warning
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 
 @Composable
 fun BookingsScreen(navController: NavController) {
@@ -29,13 +30,14 @@ fun BookingsScreen(navController: NavController) {
     var bookings by remember { mutableStateOf(listOf<Booking>()) }
 
     LaunchedEffect(Unit) {
-        firestore.collection("bookings")
+        firestore.collection("bookings_lite")
             .whereEqualTo("userId", userId)
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .limit(50)
             .addSnapshotListener { snapshot, _ ->
                 snapshot?.let {
                     bookings = it.documents
                         .mapNotNull { doc -> doc.toObject(Booking::class.java) }
-                        .sortedByDescending { it.timestamp }
                 }
             }
     }

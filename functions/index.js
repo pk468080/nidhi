@@ -76,14 +76,15 @@ function toHumanStatus(status) {
 async function syncBookingsLite(bookingId, bookingData) {
   const liteData = {
     bookingId,
-    userId:      bookingData.userId       || "",
-    providerId:  bookingData.providerId   || "",
-    serviceName: bookingData.serviceName  || "",
-    status:      bookingData.status       || "pending",
-    amount:      bookingData.amount       || 0,
-    scheduledDate: bookingData.scheduledDate || "",
-    scheduledTime: bookingData.scheduledTime || "",
-    timestamp:   bookingData.timestamp    || Date.now()
+    userId:        bookingData.userId         || "",
+    providerId:    bookingData.providerId     || "",
+    serviceName:   bookingData.serviceName    || "",
+    status:        bookingData.status         || "pending",
+    amount:        bookingData.amount         || 0,
+    address:       bookingData.address        || "",
+    scheduledDate: bookingData.scheduledDate  || "",
+    scheduledTime: bookingData.scheduledTime  || "",
+    timestamp:     bookingData.timestamp      || Date.now()
   };
   await admin.firestore().collection("bookings_lite").doc(bookingId).set(liteData, { merge: true });
 }
@@ -441,6 +442,28 @@ exports.onReviewCreated = onDocumentCreated("reviews/{reviewId}", async (event) 
     { rating: Math.round(average * 10) / 10, reviewCount: ratings.length },
     { merge: true }
   );
+});
+
+// ─── cleanupStaleTracking (scheduled) ────────────────────────────────────────
+
+exports.cleanupStaleTracking = onSchedule("every 24 hours", async () => {
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000; // 24 hours ago
+  const db = admin.database();
+  const trackingRef = db.ref("tracking");
+
+  const snapshot = await trackingRef.orderByChild("updatedAt").endAt(cutoff).get();
+  if (!snapshot.exists()) {
+    console.log("No stale tracking entries to clean up.");
+    return;
+  }
+
+  const deletions = [];
+  snapshot.forEach((child) => {
+    deletions.push(child.ref.remove());
+  });
+
+  await Promise.all(deletions);
+  console.log(`Deleted ${deletions.length} stale tracking entries.`);
 });
 
 // ─── cleanupExpiredNotifications (scheduled) ─────────────────────────────────
