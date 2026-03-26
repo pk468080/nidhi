@@ -21,7 +21,7 @@ service cloud.firestore {
 
     // Input validation helpers
     function isValidStatus(status) {
-      return status in ["pending", "accepted", "rejected", "on_the_way", "arrived", "completed", "cancelled"];
+      return status in ["pending", "accepted", "rejected", "on_the_way", "arrived", "completed", "cancelled", "unassigned"];
     }
 
     function isValidPaymentStatus(status) {
@@ -123,6 +123,11 @@ service cloud.firestore {
 
     // Rate limit tracking (written by Cloud Functions only).
     match /rate_limits/{docId} {
+      allow read, write: if false;
+    }
+
+    // Idempotency keys — written and read by Cloud Functions only.
+    match /idempotency_keys/{keyId} {
       allow read, write: if false;
     }
   }

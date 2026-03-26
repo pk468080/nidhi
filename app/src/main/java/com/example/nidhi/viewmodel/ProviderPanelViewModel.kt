@@ -11,6 +11,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.Query
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -81,8 +82,10 @@ class ProviderPanelViewModel : ViewModel() {
         }
 
         // Query 1: all PENDING bookings so any provider can see and accept them.
-        pendingBookingsListener = firestore.collection("bookings")
+        pendingBookingsListener = firestore.collection("bookings_lite")
             .whereEqualTo("status", BookingStatus.PENDING.value)
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .limit(50)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     _uiState.update {
@@ -93,7 +96,6 @@ class ProviderPanelViewModel : ViewModel() {
 
                 val pending = snapshot?.documents
                     ?.mapNotNull { it.toObject(Booking::class.java) }
-                    ?.sortedByDescending { it.timestamp }
                     ?: emptyList()
 
                 pendingInitialLoad = true
@@ -102,7 +104,7 @@ class ProviderPanelViewModel : ViewModel() {
             }
 
         // Query 2: active bookings that belong to THIS provider only.
-        activeBookingsListener = firestore.collection("bookings")
+        activeBookingsListener = firestore.collection("bookings_lite")
             .whereEqualTo("providerId", providerId)
             .whereIn(
                 "status",
@@ -112,6 +114,8 @@ class ProviderPanelViewModel : ViewModel() {
                     BookingStatus.ARRIVED.value
                 )
             )
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .limit(50)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     _uiState.update {
@@ -122,7 +126,6 @@ class ProviderPanelViewModel : ViewModel() {
 
                 val active = snapshot?.documents
                     ?.mapNotNull { it.toObject(Booking::class.java) }
-                    ?.sortedByDescending { it.timestamp }
                     ?: emptyList()
 
                 activeInitialLoad = true

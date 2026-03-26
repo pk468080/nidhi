@@ -2,28 +2,17 @@ const admin = require("firebase-admin");
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { CloudTasksClient } = require("@google-cloud/tasks");
+const { haversineKm, findBestProvider } = require("./matching");
 
 admin.initializeApp();
 
-// ─── Utility: Haversine distance ────────────────────────────────────────────
 
-/**
- * Returns the great-circle distance in kilometres between two coordinates.
- */
-function haversineKm(lat1, lng1, lat2, lng2) {
-  const R = 6371;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-    Math.sin(dLng / 2) * Math.sin(dLng / 2);
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function toRad(deg) {
-  return deg * (Math.PI / 180);
-}
+const MAX_ASSIGNMENT_ATTEMPTS = 3;
+/** Acceptance window in seconds before timeout triggers a retry. */
+const ACCEPTANCE_TIMEOUT_SECONDS = 300; // 5 minutes
+/** Back-off between retry attempts in seconds. */
+const RETRY_BACKOFF_SECONDS = 30;
 
 // ─── Utility: Rate limiting ──────────────────────────────────────────────────
 
@@ -67,6 +56,7 @@ function toHumanStatus(status) {
     case "completed":   return "Service completed";
     case "rejected":    return "Provider rejected your request";
     case "cancelled":   return "Booking cancelled";
+    case "unassigned":  return "No provider found — please try again";
     default:            return status;
   }
 }
@@ -76,129 +66,266 @@ function toHumanStatus(status) {
 async function syncBookingsLite(bookingId, bookingData) {
   const liteData = {
     bookingId,
-    userId:      bookingData.userId       || "",
-    providerId:  bookingData.providerId   || "",
-    serviceName: bookingData.serviceName  || "",
-    status:      bookingData.status       || "pending",
-    amount:      bookingData.amount       || 0,
-    scheduledDate: bookingData.scheduledDate || "",
-    scheduledTime: bookingData.scheduledTime || "",
-    timestamp:   bookingData.timestamp    || Date.now()
+    userId:        bookingData.userId         || "",
+    providerId:    bookingData.providerId     || "",
+    serviceName:   bookingData.serviceName    || "",
+    status:        bookingData.status         || "pending",
+    amount:        bookingData.amount         || 0,
+    address:       bookingData.address        || "",
+    scheduledDate: bookingData.scheduledDate  || "",
+    scheduledTime: bookingData.scheduledTime  || "",
+    timestamp:     bookingData.timestamp      || Date.now()
   };
   await admin.firestore().collection("bookings_lite").doc(bookingId).set(liteData, { merge: true });
 }
 
-// ─── Smart provider matching ─────────────────────────────────────────────────
+// ─── Utility: build deduplicated rejected-providers list ─────────────────────
 
 /**
- * Finds the best available provider for a given service type.
- * Score = 0.6 * (1 / (distanceKm + 1)) + 0.4 * (rating / 5)
- * When booking coordinates are supplied the real Haversine distance is used;
- * otherwise a neutral placeholder of 50 km is applied.
- * Returns the provider document snapshot or null.
+ * Returns a new array containing all IDs from `existing` plus `newId`,
+ * with duplicates removed.
+ * @param {string[]} existing
+ * @param {string}   newId
+ * @returns {string[]}
  */
-async function findBestProvider(serviceType, excludeIds = [], customerLat = null, customerLng = null) {
-  const snapshot = await admin.firestore()
-    .collection("providers")
-    .where("available", "==", true)
-    .where("serviceTypes", "array-contains", serviceType)
-    .get();
+function addToRejectedProviders(existing, newId) {
+  return [...new Set([...existing, newId])];
+}
 
-  if (snapshot.empty) return null;
+// ─── Helper: assign a provider and notify ────────────────────────────────────
 
-  let best = null;
-  let bestScore = -1;
+/**
+ * Assigns the best available provider to a booking and sends an FCM notification.
+ * Updates the booking document with assignment metadata and schedules a timeout
+ * task so that unresponsive providers are automatically retried.
+ *
+ * @param {string}   bookingId
+ * @param {object}   booking         Current booking data
+ * @param {string[]} rejectedIds     Provider IDs to exclude from this attempt
+ * @param {number}   attemptNum      1-based attempt counter
+ */
+async function assignProvider(bookingId, booking, rejectedIds, attemptNum) {
+  const serviceType = booking.serviceType || booking.serviceName || "general";
 
-  for (const doc of snapshot.docs) {
-    if (excludeIds.includes(doc.id)) continue;
-    const p = doc.data();
-    const rating = typeof p.rating === "number" ? p.rating : 3.0;
-    // Use real coordinates when available; fall back to 50 km neutral distance.
-    let distanceKm = 50;
-    if (customerLat != null && customerLng != null && p.lat != null && p.lng != null) {
-      distanceKm = haversineKm(customerLat, customerLng, p.lat, p.lng);
-    }
-    const score = 0.6 * (1 / (distanceKm + 1)) + 0.4 * (rating / 5);
-    if (score > bestScore) {
-      bestScore = score;
-      best = doc;
-    }
+  const providerDoc = await findBestProvider(
+    serviceType,
+    rejectedIds,
+    booking.customerLat ?? null,
+    booking.customerLng ?? null
+  );
+
+  const bookingRef = admin.firestore().collection("bookings").doc(bookingId);
+  const now = Date.now();
+
+  if (!providerDoc) {
+    // No provider found — mark as unassigned and notify customer.
+    await bookingRef.update({
+      status: "unassigned",
+      assignmentAttempt: attemptNum,
+      updatedAt: now
+    });
+    await syncBookingsLite(bookingId, { ...booking, status: "unassigned" });
+    await sendNotificationToUser(
+      booking.userId,
+      "No provider available",
+      "We could not find an available provider for your booking. Please try again later.",
+      { bookingId, type: "no_provider_available" }
+    );
+    return;
   }
-  return best;
+
+  const provider = providerDoc.data();
+  const historyEntry = {
+    attemptNum,
+    assignedProvider: providerDoc.id,
+    assignedAt: now,
+    status: "pending"
+  };
+
+  await bookingRef.update({
+    status: "pending",
+    assignedProviderId: providerDoc.id,
+    assignedProviderName: provider.name || "",
+    assignedAt: now,
+    assignmentAttempt: attemptNum,
+    rejectedProviders: rejectedIds,
+    assignmentHistory: admin.firestore.FieldValue.arrayUnion(historyEntry),
+    updatedAt: now
+  });
+  await syncBookingsLite(bookingId, { ...booking, status: "pending", assignedProviderId: providerDoc.id });
+
+  // Notify the matched provider.
+  const tokenSnapshot = await admin.firestore()
+    .collection("users").doc(providerDoc.id).collection("devices").get();
+  const tokens = tokenSnapshot.docs
+    .map((d) => d.get("token"))
+    .filter((t) => typeof t === "string" && t.length > 0);
+
+  if (tokens.length > 0) {
+    await admin.messaging().sendEachForMulticast({
+      tokens,
+      notification: {
+        title: "New booking request",
+        body: `${booking.serviceName || "New service"} booking is waiting for your acceptance`
+      },
+      data: { bookingId, type: "booking_created", attemptNum: String(attemptNum) }
+    });
+  }
+
+  // Schedule a timeout task — if provider does not respond within the acceptance
+  // window, the task handler will trigger the next retry attempt.
+  await scheduleTimeoutTask(bookingId, attemptNum);
+}
+
+// ─── Helper: schedule a Cloud Tasks timeout ──────────────────────────────────
+
+/**
+ * Enqueues a Cloud Task that fires after ACCEPTANCE_TIMEOUT_SECONDS.
+ * The task calls the `handleAssignmentTimeout` HTTP function.
+ * Requires GOOGLE_CLOUD_PROJECT and CLOUD_TASKS_QUEUE env vars to be set,
+ * or falls back gracefully when running in the local emulator.
+ *
+ * @param {string} bookingId
+ * @param {number} attemptNum
+ */
+async function scheduleTimeoutTask(bookingId, attemptNum) {
+  const projectId = process.env.GOOGLE_CLOUD_PROJECT;
+  const queueName = process.env.CLOUD_TASKS_QUEUE || "provider-timeout";
+  const location = process.env.CLOUD_TASKS_LOCATION || "us-central1";
+  const functionUrl = process.env.HANDLE_TIMEOUT_URL;
+
+  if (!projectId || !functionUrl) {
+    // Running locally / emulator — skip Cloud Tasks scheduling.
+    console.log(`[scheduleTimeoutTask] Skipping: env vars not set for booking ${bookingId}`);
+    return;
+  }
+
+  const client = new CloudTasksClient();
+  const parent = client.queuePath(projectId, location, queueName);
+
+  const payload = JSON.stringify({ bookingId, attemptNum });
+  const scheduleTime = Math.floor(Date.now() / 1000) + ACCEPTANCE_TIMEOUT_SECONDS;
+
+  await client.createTask({
+    parent,
+    task: {
+      httpRequest: {
+        httpMethod: "POST",
+        url: functionUrl,
+        headers: { "Content-Type": "application/json" },
+        body: payload
+      },
+      scheduleTime: { seconds: scheduleTime }
+    }
+  });
+}
+
+/**
+ * Enqueues a Cloud Task with a backoff delay to retry provider assignment.
+ * The task calls the `handleRetryAssignment` HTTP function.
+ * Gracefully skips when running in the local emulator.
+ *
+ * @param {string}   bookingId
+ * @param {number}   nextAttempt     The attempt number to use in the retry
+ * @param {string[]} rejectedIds     Provider IDs to exclude from the retry
+ * @param {number}   delaySeconds    How many seconds from now to schedule the task
+ */
+async function scheduleRetryTask(bookingId, nextAttempt, rejectedIds, delaySeconds) {
+  const projectId = process.env.GOOGLE_CLOUD_PROJECT;
+  const queueName = process.env.CLOUD_TASKS_QUEUE || "provider-timeout";
+  const location = process.env.CLOUD_TASKS_LOCATION || "us-central1";
+  const functionUrl = process.env.HANDLE_RETRY_URL;
+
+  if (!projectId || !functionUrl) {
+    // Running locally / emulator — fall back to immediate in-process retry.
+    console.log(`[scheduleRetryTask] Skipping Cloud Tasks: env vars not set for booking ${bookingId}`);
+    const bookingSnap = await admin.firestore().collection("bookings").doc(bookingId).get();
+    if (bookingSnap.exists) {
+      await assignProvider(bookingId, bookingSnap.data(), rejectedIds, nextAttempt);
+    }
+    return;
+  }
+
+  const client = new CloudTasksClient();
+  const parent = client.queuePath(projectId, location, queueName);
+
+  const payload = JSON.stringify({ bookingId, attemptNum: nextAttempt, rejectedProviders: rejectedIds });
+  const scheduleTime = Math.floor(Date.now() / 1000) + delaySeconds;
+
+  await client.createTask({
+    parent,
+    task: {
+      httpRequest: {
+        httpMethod: "POST",
+        url: functionUrl,
+        headers: { "Content-Type": "application/json" },
+        body: payload
+      },
+      scheduleTime: { seconds: scheduleTime }
+    }
+  });
 }
 
 // ─── onBookingCreated ────────────────────────────────────────────────────────
+
+exports.createBooking = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
+
+  const { idempotencyKey, bookingData } = request.data;
+  if (!idempotencyKey || typeof idempotencyKey !== "string") {
+    throw new HttpsError("invalid-argument", "idempotencyKey is required.");
+  }
+  if (!bookingData || typeof bookingData !== "object") {
+    throw new HttpsError("invalid-argument", "bookingData is required.");
+  }
+
+  const db = admin.firestore();
+  const idempotencyRef = db.collection("idempotency_keys").doc(idempotencyKey);
+
+  return db.runTransaction(async (tx) => {
+    const existing = await tx.get(idempotencyRef);
+    if (existing.exists) {
+      // Already processed — return the cached result.
+      return existing.data().result;
+    }
+
+    const bookingRef = db.collection("bookings").doc();
+    const now = Date.now();
+    const newBooking = {
+      ...bookingData,
+      bookingId:     bookingRef.id,
+      userId:        uid,
+      status:        "pending",
+      paymentStatus: "pending",
+      timestamp:     now,
+      createdAt:     now,
+      assignmentAttempt: 1,
+      statusHistory: [{ from: null, to: "pending", timestamp: now, actor: uid }]
+    };
+
+    tx.set(bookingRef, newBooking);
+    tx.set(idempotencyRef, { result: { bookingId: bookingRef.id }, timestamp: now });
+
+    return { bookingId: bookingRef.id };
+  });
+});
+
 
 exports.onBookingCreated = onDocumentCreated("bookings/{bookingId}", async (event) => {
   const booking = event.data?.data();
   if (!booking) return;
 
   const bookingId = event.params.bookingId;
-  const serviceType = booking.serviceType || booking.serviceName || "general";
 
   // Create the lightweight list-view document.
   await syncBookingsLite(bookingId, booking);
 
-  // Attempt smart provider assignment.
-  const providerDoc = await findBestProvider(
-    serviceType,
-    [],
-    booking.customerLat ?? null,
-    booking.customerLng ?? null
-  );
-  if (providerDoc) {
-    const provider = providerDoc.data();
-    await admin.firestore().collection("bookings").doc(bookingId).update({
-      status: "pending",
-      assignedProviderId: providerDoc.id,
-      assignedProviderName: provider.name || "",
-      assignedAt: Date.now()
-    });
 
-    // Notify the matched provider via FCM.
-    const tokenSnapshot = await admin.firestore()
-      .collection("users").doc(providerDoc.id).collection("devices").get();
-    const tokens = tokenSnapshot.docs
-      .map((d) => d.get("token"))
-      .filter((t) => typeof t === "string" && t.length > 0);
-
-    if (tokens.length > 0) {
-      await admin.messaging().sendEachForMulticast({
-        tokens,
-        notification: {
-          title: "New booking request",
-          body: `${booking.serviceName || "New service"} booking is waiting for your acceptance`
-        },
-        data: { bookingId, type: "booking_created" }
-      });
-    }
-  } else {
-    // Fallback: broadcast to all providers topic.
-    await admin.messaging().send({
-      topic: "providers_all",
-      notification: {
-        title: "New booking request",
-        body: `${booking.serviceName || "New service"} booking is waiting for acceptance`
-      },
-      data: { bookingId, type: "booking_created" }
-    });
-  }
 });
 
 // ─── onBookingStatusChanged ──────────────────────────────────────────────────
 
-/**
- * Valid state-machine transitions. Key = from, Value = allowed "to" states.
- */
-const VALID_TRANSITIONS = {
-  pending:     ["accepted", "rejected", "cancelled"],
-  accepted:    ["on_the_way", "cancelled"],
-  on_the_way:  ["arrived", "cancelled"],
-  arrived:     ["completed", "cancelled"],
-  completed:   [],
-  rejected:    [],
-  cancelled:   []
-};
 
 exports.onBookingStatusChanged = onDocumentUpdated("bookings/{bookingId}", async (event) => {
   const before = event.data?.before?.data();
@@ -277,11 +404,217 @@ exports.acceptBooking = onCall(async (request) => {
       providerId: uid,
       providerName: provider.name || "",
       providerPhone: provider.phone || "",
-      providerRating: provider.rating || 0
+      providerRating: provider.rating || 0,
+      updatedAt: Date.now(),
+      statusHistory: admin.firestore.FieldValue.arrayUnion({
+        from: "pending",
+        to: "accepted",
+        timestamp: Date.now(),
+        actor: uid
+      })
     });
   });
 
   return { success: true };
+});
+
+// ─── rejectBooking (callable) ─────────────────────────────────────────────────
+
+/**
+ * Called by a provider to reject an assigned booking.
+ * Records the rejection and triggers the next provider assignment attempt.
+ * After MAX_ASSIGNMENT_ATTEMPTS failures the booking is marked "unassigned"
+ * and the customer is notified.
+ */
+exports.rejectBooking = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Must be signed in.");
+
+  const { bookingId } = request.data;
+  if (!bookingId || typeof bookingId !== "string") {
+    throw new HttpsError("invalid-argument", "bookingId is required.");
+  }
+
+  const bookingRef = admin.firestore().collection("bookings").doc(bookingId);
+  const snapshot = await bookingRef.get();
+  if (!snapshot.exists) throw new HttpsError("not-found", "Booking not found.");
+
+  const booking = snapshot.data();
+
+  // Only the currently assigned provider can reject.
+  if (booking.assignedProviderId !== uid) {
+    throw new HttpsError("permission-denied", "You are not the assigned provider for this booking.");
+  }
+
+  if (booking.status !== "pending") {
+    throw new HttpsError("failed-precondition", `Booking cannot be rejected in status "${booking.status}".`);
+  }
+
+  const now = Date.now();
+  const currentAttempt = booking.assignmentAttempt || 1;
+  const rejectedProviders = Array.isArray(booking.rejectedProviders) ? booking.rejectedProviders : [];
+  const newRejectedProviders = addToRejectedProviders(rejectedProviders, uid);
+
+  // Update the last history entry to reflect rejection.
+  await bookingRef.update({
+    assignmentHistory: admin.firestore.FieldValue.arrayUnion({
+      attemptNum: currentAttempt,
+      assignedProvider: uid,
+      assignedAt: booking.assignedAt || now,
+      rejectedAt: now,
+      status: "rejected"
+    }),
+    rejectedProviders: newRejectedProviders,
+    assignedProviderId: admin.firestore.FieldValue.delete(),
+    assignedProviderName: admin.firestore.FieldValue.delete(),
+    updatedAt: now
+  });
+
+  const nextAttempt = currentAttempt + 1;
+
+  if (nextAttempt > MAX_ASSIGNMENT_ATTEMPTS) {
+    // All attempts exhausted — mark as unassigned and notify customer.
+    await bookingRef.update({ status: "unassigned", assignmentAttempt: nextAttempt, updatedAt: now });
+    await syncBookingsLite(bookingId, { ...booking, status: "unassigned" });
+    await sendNotificationToUser(
+      booking.userId,
+      "No provider available",
+      "We could not find an available provider after multiple attempts. Please try again later.",
+      { bookingId, type: "no_provider_available" }
+    );
+    return { success: true, status: "unassigned" };
+  }
+
+  // Schedule the next assignment attempt via Cloud Tasks with a backoff delay.
+  // This avoids blocking the function instance during the retry wait.
+  await scheduleRetryTask(bookingId, nextAttempt, newRejectedProviders, RETRY_BACKOFF_SECONDS);
+
+  return { success: true, status: "retrying", attempt: nextAttempt };
+});
+
+// ─── handleAssignmentTimeout (HTTP, called by Cloud Tasks) ───────────────────
+
+/**
+ * Triggered by Cloud Tasks when a provider has not responded within the
+ * acceptance window (ACCEPTANCE_TIMEOUT_SECONDS).
+ * If the booking is still "pending" with the same attempt number,
+ * the current provider is evicted and the next attempt is started.
+ */
+exports.handleAssignmentTimeout = onRequest(async (req, res) => {
+  if (req.method !== "POST") {
+    res.status(405).send("Method not allowed");
+    return;
+  }
+
+  const { bookingId, attemptNum } = req.body;
+  if (!bookingId || typeof attemptNum !== "number" ||
+      !Number.isInteger(attemptNum) || attemptNum < 1 || attemptNum > MAX_ASSIGNMENT_ATTEMPTS) {
+    res.status(400).send("Invalid fields: bookingId (string) and attemptNum (1–MAX_ASSIGNMENT_ATTEMPTS integer) are required.");
+    return;
+  }
+
+  const bookingRef = admin.firestore().collection("bookings").doc(bookingId);
+  const snapshot = await bookingRef.get();
+  if (!snapshot.exists) {
+    res.status(200).json({ skipped: true, reason: "booking not found" });
+    return;
+  }
+
+  const booking = snapshot.data();
+
+  // Skip if the booking is no longer in a pending-assignment state or if
+  // a later attempt has already replaced this one.
+  if (booking.status !== "pending" || booking.assignmentAttempt !== attemptNum) {
+    res.status(200).json({ skipped: true, reason: "stale timeout" });
+    return;
+  }
+
+  const now = Date.now();
+  const timedOutProvider = booking.assignedProviderId;
+  const rejectedProviders = Array.isArray(booking.rejectedProviders) ? booking.rejectedProviders : [];
+  const newRejectedProviders = timedOutProvider
+    ? addToRejectedProviders(rejectedProviders, timedOutProvider)
+    : rejectedProviders;
+
+  // Record the timeout in assignment history.
+  if (timedOutProvider) {
+    await bookingRef.update({
+      assignmentHistory: admin.firestore.FieldValue.arrayUnion({
+        attemptNum,
+        assignedProvider: timedOutProvider,
+        assignedAt: booking.assignedAt || now,
+        timedOutAt: now,
+        status: "timed_out"
+      }),
+      rejectedProviders: newRejectedProviders,
+      assignedProviderId: admin.firestore.FieldValue.delete(),
+      assignedProviderName: admin.firestore.FieldValue.delete(),
+      updatedAt: now
+    });
+  }
+
+  const nextAttempt = attemptNum + 1;
+
+  if (nextAttempt > MAX_ASSIGNMENT_ATTEMPTS) {
+    await bookingRef.update({ status: "unassigned", assignmentAttempt: nextAttempt, updatedAt: now });
+    await syncBookingsLite(bookingId, { ...booking, status: "unassigned" });
+    await sendNotificationToUser(
+      booking.userId,
+      "No provider available",
+      "We could not find an available provider after multiple attempts. Please try again later.",
+      { bookingId, type: "no_provider_available" }
+    );
+    res.status(200).json({ success: true, status: "unassigned" });
+    return;
+  }
+
+  const updatedBooking = (await bookingRef.get()).data();
+  await assignProvider(bookingId, updatedBooking, newRejectedProviders, nextAttempt);
+
+  res.status(200).json({ success: true, status: "retrying", attempt: nextAttempt });
+});
+
+// ─── handleRetryAssignment (HTTP, called by Cloud Tasks) ─────────────────────
+
+/**
+ * Triggered by Cloud Tasks (after a rejection backoff) to attempt the next
+ * provider assignment. Validates that the booking is still awaiting assignment
+ * before proceeding to avoid stale retries.
+ */
+exports.handleRetryAssignment = onRequest(async (req, res) => {
+  if (req.method !== "POST") {
+    res.status(405).send("Method not allowed");
+    return;
+  }
+
+  const { bookingId, attemptNum, rejectedProviders: rejectedFromTask } = req.body;
+  if (!bookingId || typeof attemptNum !== "number" ||
+      !Number.isInteger(attemptNum) || attemptNum < 1 || attemptNum > MAX_ASSIGNMENT_ATTEMPTS) {
+    res.status(400).send("Invalid fields: bookingId (string) and attemptNum (1–MAX_ASSIGNMENT_ATTEMPTS integer) are required.");
+    return;
+  }
+
+  const bookingRef = admin.firestore().collection("bookings").doc(bookingId);
+  const snapshot = await bookingRef.get();
+  if (!snapshot.exists) {
+    res.status(200).json({ skipped: true, reason: "booking not found" });
+    return;
+  }
+
+  const booking = snapshot.data();
+
+  // Guard against stale tasks: only proceed if still searching for a provider.
+  if (booking.status !== "pending" && booking.status !== "searching") {
+    res.status(200).json({ skipped: true, reason: `booking already in status "${booking.status}"` });
+    return;
+  }
+
+  const rejectedIds = Array.isArray(rejectedFromTask) ? rejectedFromTask :
+    (Array.isArray(booking.rejectedProviders) ? booking.rejectedProviders : []);
+
+  await assignProvider(bookingId, booking, rejectedIds, attemptNum);
+
+  res.status(200).json({ success: true, attempt: attemptNum });
 });
 
 // ─── updateBookingStatus (callable) ─────────────────────────────────────────
@@ -295,7 +628,7 @@ exports.updateBookingStatus = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "bookingId and status are required.");
   }
 
-  const allowed = ["accepted", "on_the_way", "arrived", "completed", "cancelled", "rejected"];
+  const allowed = ["accepted", "on_the_way", "arrived", "completed", "cancelled", "rejected", "unassigned"];
   if (!allowed.includes(status)) {
     throw new HttpsError("invalid-argument", `Invalid status: ${status}`);
   }
@@ -316,17 +649,8 @@ exports.updateBookingStatus = onCall(async (request) => {
     throw new HttpsError("permission-denied", "Customers can only cancel bookings.");
   }
 
-  // Validate transition.
-  const fromStatus = booking.status || "pending";
-  const validNext = VALID_TRANSITIONS[fromStatus] || [];
-  if (!validNext.includes(status)) {
-    throw new HttpsError(
-      "failed-precondition",
-      `Cannot transition booking from "${fromStatus}" to "${status}".`
-    );
-  }
-
-  await bookingRef.update({ status });
+  // Validate transition and update with audit trail via state machine module.
+  await smUpdateBookingStatus(bookingId, status, uid);
   return { success: true };
 });
 
@@ -443,33 +767,7 @@ exports.onReviewCreated = onDocumentCreated("reviews/{reviewId}", async (event) 
   );
 });
 
-// ─── cleanupOldTracking (scheduled) ──────────────────────────────────────────
 
-/**
- * Hourly job that removes tracking nodes that have not been updated in the last
- * 24 hours.  This prevents stale GPS data from accumulating in the Realtime DB.
- */
-exports.cleanupOldTracking = onSchedule("every 60 minutes", async () => {
-  const cutoff = Date.now() - 24 * 60 * 60 * 1000; // 24 hours ago
-
-  const trackingRef = admin.database().ref("tracking");
-  const snapshot = await trackingRef
-    .orderByChild("updatedAt")
-    .endAt(cutoff)
-    .once("value");
-
-  if (!snapshot.exists()) {
-    console.log("No stale tracking records to clean up.");
-    return;
-  }
-
-  const updates = {};
-  snapshot.forEach((child) => {
-    updates[child.key] = null; // null = delete in RTDB multi-location update
-  });
-
-  await trackingRef.update(updates);
-  console.log(`Deleted ${Object.keys(updates).length} stale tracking records.`);
 });
 
 // ─── cleanupExpiredNotifications (scheduled) ─────────────────────────────────
