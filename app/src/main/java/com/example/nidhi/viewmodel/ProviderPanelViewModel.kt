@@ -3,12 +3,14 @@ package com.example.nidhi.viewmodel
 import androidx.lifecycle.ViewModel
 import com.example.nidhi.data.model.Booking
 import com.example.nidhi.data.model.BookingStatus
+import com.example.nidhi.data.repository.BookingRepository
 import com.example.nidhi.utils.LocationUtility
 import com.example.nidhi.utils.OfflineTrackingQueue
 import com.example.nidhi.utils.TrackingStateManager
 import com.example.nidhi.utils.TrackingUpdate
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
@@ -19,6 +21,8 @@ import kotlinx.coroutines.flow.update
 
 data class ProviderPanelUiState(
     val pendingBookings: List<Booking> = emptyList(),
+    val hasPendingMore: Boolean = false,
+    val isPendingLoadingMore: Boolean = false,
     val activeBookings: List<Booking> = emptyList(),
     val isLoading: Boolean = true,
     val liveTrackingBookingId: String? = null,
@@ -30,11 +34,15 @@ class ProviderPanelViewModel : ViewModel() {
     private val firestore = FirebaseFirestore.getInstance()
     private val realtimeDb = FirebaseDatabase.getInstance()
     private val auth = FirebaseAuth.getInstance()
+    private val repository = BookingRepository()
     private val stateManager = TrackingStateManager(realtimeDb)
     private val offlineQueue = OfflineTrackingQueue()
 
     private var pendingBookingsListener: ListenerRegistration? = null
     private var activeBookingsListener: ListenerRegistration? = null
+
+    /** Cursor pointing to the last pending-bookings document already fetched. */
+    private var lastPendingDocument: DocumentSnapshot? = null
 
     /** Whether the device currently has a Firebase Realtime DB connection. */
     private var isOnline = true
@@ -81,27 +89,21 @@ class ProviderPanelViewModel : ViewModel() {
             }
         }
 
-        // Query 1: all PENDING bookings so any provider can see and accept them.
-        pendingBookingsListener = firestore.collection("bookings_lite")
-            .whereEqualTo("status", BookingStatus.PENDING.value)
-            .orderBy("timestamp", Query.Direction.DESCENDING)
-            .limit(50)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    _uiState.update {
-                        it.copy(isLoading = false, message = "Failed to load provider bookings")
-                    }
-                    return@addSnapshotListener
-                }
-
-                val pending = snapshot?.documents
-                    ?.mapNotNull { it.toObject(Booking::class.java) }
-                    ?: emptyList()
-
-                pendingInitialLoad = true
-                _uiState.update { it.copy(pendingBookings = pending) }
-                checkInitialLoadComplete()
+        // Query 1: first page of PENDING bookings (one-time paginated fetch).
+        // Providers must pull-to-refresh to see bookings that arrive after initial load.
+        lastPendingDocument = null
+        repository.getPendingBookingsPage(cursor = null) { result ->
+            lastPendingDocument = result.lastVisible
+            pendingInitialLoad = true
+            _uiState.update {
+                it.copy(
+                    pendingBookings = result.bookings,
+                    hasPendingMore = result.hasMore,
+                    isPendingLoadingMore = false
+                )
             }
+            checkInitialLoadComplete()
+        }
 
         // Query 2: active bookings that belong to THIS provider only.
         activeBookingsListener = firestore.collection("bookings_lite")
@@ -136,6 +138,52 @@ class ProviderPanelViewModel : ViewModel() {
 
     fun clearMessage() {
         _uiState.update { it.copy(message = null) }
+    }
+
+    /**
+     * Loads the next page of pending bookings and appends it to the existing list.
+     * No-op if there are no more pages or a load is already in progress.
+     */
+    fun loadMorePendingBookings() {
+        val state = _uiState.value
+        if (!state.hasPendingMore || state.isPendingLoadingMore) return
+
+        _uiState.update { it.copy(isPendingLoadingMore = true) }
+        repository.getPendingBookingsPage(cursor = lastPendingDocument) { result ->
+            lastPendingDocument = result.lastVisible
+            _uiState.update {
+                it.copy(
+                    pendingBookings = it.pendingBookings + result.bookings,
+                    hasPendingMore = result.hasMore,
+                    isPendingLoadingMore = false
+                )
+            }
+        }
+    }
+
+    /**
+     * Reloads the pending bookings list from the first page.
+     * Call this from pull-to-refresh to pick up new pending bookings.
+     */
+    fun refreshPendingBookings() {
+        lastPendingDocument = null
+        _uiState.update {
+            it.copy(
+                pendingBookings = emptyList(),
+                hasPendingMore = true,
+                isPendingLoadingMore = true
+            )
+        }
+        repository.getPendingBookingsPage(cursor = null) { result ->
+            lastPendingDocument = result.lastVisible
+            _uiState.update {
+                it.copy(
+                    pendingBookings = result.bookings,
+                    hasPendingMore = result.hasMore,
+                    isPendingLoadingMore = false
+                )
+            }
+        }
     }
 
     fun startLiveTracking(bookingId: String) {
