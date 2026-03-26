@@ -12,9 +12,9 @@ data class Payment(
     val timestamp: Long = System.currentTimeMillis()
 )
 
-enum class PaymentMethod(val value: String, val displayName: String) {
-    UPI("upi", "UPI"),
-    CARD("card", "Credit / Debit Card"),
-    WALLET("wallet", "Wallet"),
-    NET_BANKING("net_banking", "Net Banking")
+enum class PaymentMethod(val value: String, val displayName: String, val razorpayKey: String) {
+    UPI("upi", "UPI", "upi"),
+    CARD("card", "Credit / Debit Card", "card"),
+    WALLET("wallet", "Wallet", "wallet"),
+    NET_BANKING("net_banking", "Net Banking", "netbanking")
 }

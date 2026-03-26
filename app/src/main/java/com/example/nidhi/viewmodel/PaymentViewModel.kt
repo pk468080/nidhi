@@ -101,6 +101,18 @@ class PaymentViewModel : ViewModel() {
         _checkoutOptions.value = null
     }
 
+    /**
+     * Called by PaymentScreen when the checkout could not be launched (e.g. Activity context
+     * unavailable). Resets loading state so the UI is not stuck.
+     */
+    fun onCheckoutFailed() {
+        _checkoutOptions.value = null
+        _isLoading.value = false
+        pendingPayment = null
+        pendingBookingId = null
+        _paymentResult.value = PaymentResult.Failure("Unable to open payment screen. Please try again.")
+    }
+
     /** Called indirectly via [RazorpayPaymentHandler] from MainActivity.onPaymentSuccess. */
     private fun onRazorpaySuccess(razorpayPaymentId: String) {
         val payment = pendingPayment?.copy(

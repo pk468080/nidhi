@@ -1,0 +1,13 @@
+# Copy this file to local.properties (already git-ignored) and fill in your values.
+#
+# local.properties is NEVER committed to source control.
+# For CI/CD, generate this file from your secrets manager or pass Gradle properties directly.
+
+## Android SDK path (set automatically by Android Studio)
+# sdk.dir=/path/to/Android/sdk
+
+## Razorpay Key ID
+# Get your key from https://dashboard.razorpay.com/app/keys
+# Use rzp_test_... for development/testing and rzp_live_... for production.
+# Fixes "Invalid Key Id" / BAD_REQUEST_ERROR from the Razorpay checkout SDK.
+razorpay.keyId=rzp_test_YOUR_KEY_ID_HERE

@@ -47,7 +47,11 @@ fun PaymentScreen(
     // Launch Razorpay Checkout when the ViewModel emits checkout options.
     LaunchedEffect(checkoutOptions) {
         val options = checkoutOptions ?: return@LaunchedEffect
-        val activity = context as? ComponentActivity ?: return@LaunchedEffect
+        val activity = context as? ComponentActivity
+        if (activity == null) {
+            viewModel.onCheckoutFailed()
+            return@LaunchedEffect
+        }
         viewModel.onCheckoutLaunched()
         checkout.setKeyID(RazorpayConfig.KEY_ID)
         checkout.open(activity, options)
