@@ -23,6 +23,7 @@ import com.example.nidhi.navigation.Routes
 import com.example.nidhi.ui.theme.AppSpacing
 import com.example.nidhi.utils.formatIndianPhoneNumber
 import com.example.nidhi.viewmodel.AuthViewModel
+import com.example.nidhi.R
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.android.gms.auth.api.signin.*
@@ -51,7 +52,7 @@ fun LoginScreen(navController: NavController) {
     val googleSignInClient = GoogleSignIn.getClient(
         context,
         GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken("111918879978-elsfl9lbfhfaprbrtitdehfhrt3nc7pg.apps.googleusercontent.com")
+            .requestIdToken(context.getString(R.string.default_web_client_id))
             .requestEmail()
             .build()
     )

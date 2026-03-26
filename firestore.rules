@@ -44,7 +44,7 @@ service cloud.firestore {
 
       allow read: if isOwner(resource.data.userId)
         || isAssignedProvider(resource.data.providerId)
-        || isProvider();
+        || (isProvider() && resource.data.status == "pending");
 
       // Customer can only update their own address/notes/schedule while booking is still pending.
       allow update: if isOwner(resource.data.userId)
@@ -61,7 +61,7 @@ service cloud.firestore {
       allow read: if isSignedIn()
         && (resource.data.userId == request.auth.uid
             || resource.data.providerId == request.auth.uid
-            || isProvider());
+            || (isProvider() && resource.data.status == "pending"));
       allow write: if false; // Cloud Functions only
     }
 
