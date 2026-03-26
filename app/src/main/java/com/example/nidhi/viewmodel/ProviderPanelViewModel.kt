@@ -26,20 +26,57 @@ class ProviderPanelViewModel : ViewModel() {
     private val realtimeDb = FirebaseDatabase.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
-    private var bookingsListener: ListenerRegistration? = null
+    private var pendingBookingsListener: ListenerRegistration? = null
+    private var activeBookingsListener: ListenerRegistration? = null
 
     private val _uiState = MutableStateFlow(ProviderPanelUiState())
     val uiState: StateFlow<ProviderPanelUiState> = _uiState.asStateFlow()
 
     fun startListening() {
-        bookingsListener?.remove()
+        pendingBookingsListener?.remove()
+        activeBookingsListener?.remove()
+
+        val providerId = auth.currentUser?.uid ?: return
         _uiState.update { it.copy(isLoading = true, message = null) }
 
-        bookingsListener = firestore.collection("bookings")
+        // Track whether each query has delivered its first result so that isLoading
+        // is cleared only after both listeners have responded at least once.
+        var pendingInitialLoad = false
+        var activeInitialLoad = false
+
+        fun checkInitialLoadComplete() {
+            if (pendingInitialLoad && activeInitialLoad) {
+                _uiState.update { it.copy(isLoading = false) }
+            }
+        }
+
+        // Query 1: all PENDING bookings so any provider can see and accept them.
+        pendingBookingsListener = firestore.collection("bookings")
+            .whereEqualTo("status", BookingStatus.PENDING.value)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    _uiState.update {
+                        it.copy(isLoading = false, message = "Failed to load provider bookings")
+                    }
+                    return@addSnapshotListener
+                }
+
+                val pending = snapshot?.documents
+                    ?.mapNotNull { it.toObject(Booking::class.java) }
+                    ?.sortedByDescending { it.timestamp }
+                    ?: emptyList()
+
+                pendingInitialLoad = true
+                _uiState.update { it.copy(pendingBookings = pending) }
+                checkInitialLoadComplete()
+            }
+
+        // Query 2: active bookings that belong to THIS provider only.
+        activeBookingsListener = firestore.collection("bookings")
+            .whereEqualTo("providerId", providerId)
             .whereIn(
                 "status",
                 listOf(
-                    BookingStatus.PENDING.value,
                     BookingStatus.ACCEPTED.value,
                     BookingStatus.ON_THE_WAY.value,
                     BookingStatus.ARRIVED.value
@@ -53,26 +90,14 @@ class ProviderPanelViewModel : ViewModel() {
                     return@addSnapshotListener
                 }
 
-                val bookings = snapshot?.documents
+                val active = snapshot?.documents
                     ?.mapNotNull { it.toObject(Booking::class.java) }
                     ?.sortedByDescending { it.timestamp }
                     ?: emptyList()
 
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        pendingBookings = bookings.filter { booking ->
-                            booking.status == BookingStatus.PENDING.value
-                        },
-                        activeBookings = bookings.filter { booking ->
-                            booking.status in listOf(
-                                BookingStatus.ACCEPTED.value,
-                                BookingStatus.ON_THE_WAY.value,
-                                BookingStatus.ARRIVED.value
-                            )
-                        }
-                    )
-                }
+                activeInitialLoad = true
+                _uiState.update { it.copy(activeBookings = active) }
+                checkInitialLoadComplete()
             }
     }
 
@@ -138,6 +163,8 @@ class ProviderPanelViewModel : ViewModel() {
                 // the provider starts live tracking or bumps their location manually.
                 writeTracking(
                     bookingId = booking.bookingId,
+                    userId = booking.userId,
+                    providerId = providerId,
                     status = BookingStatus.ACCEPTED.value,
                     eta = 0,
                     lat = Double.NaN,
@@ -240,6 +267,8 @@ class ProviderPanelViewModel : ViewModel() {
 
     private fun writeTracking(
         bookingId: String,
+        userId: String,
+        providerId: String,
         status: String,
         eta: Int,
         lat: Double,
@@ -250,6 +279,8 @@ class ProviderPanelViewModel : ViewModel() {
     ) {
         realtimeDb.getReference("tracking/$bookingId").setValue(
             mapOf(
+                "userId" to userId,
+                "providerId" to providerId,
                 "status" to status,
                 "eta" to eta,
                 "providerLat" to lat,
@@ -263,7 +294,8 @@ class ProviderPanelViewModel : ViewModel() {
 
     override fun onCleared() {
         super.onCleared()
-        bookingsListener?.remove()
+        pendingBookingsListener?.remove()
+        activeBookingsListener?.remove()
         _uiState.update { it.copy(liveTrackingBookingId = null) }
     }
 }
