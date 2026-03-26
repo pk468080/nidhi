@@ -3,6 +3,10 @@ package com.example.nidhi.viewmodel
 import androidx.lifecycle.ViewModel
 import com.example.nidhi.data.model.Booking
 import com.example.nidhi.data.model.BookingStatus
+import com.example.nidhi.utils.LocationUtility
+import com.example.nidhi.utils.OfflineTrackingQueue
+import com.example.nidhi.utils.TrackingStateManager
+import com.example.nidhi.utils.TrackingUpdate
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.firestore.FirebaseFirestore
@@ -26,9 +30,25 @@ class ProviderPanelViewModel : ViewModel() {
     private val firestore = FirebaseFirestore.getInstance()
     private val realtimeDb = FirebaseDatabase.getInstance()
     private val auth = FirebaseAuth.getInstance()
+    private val stateManager = TrackingStateManager(realtimeDb)
+    private val offlineQueue = OfflineTrackingQueue()
 
     private var pendingBookingsListener: ListenerRegistration? = null
     private var activeBookingsListener: ListenerRegistration? = null
+
+    /** Whether the device currently has a Firebase Realtime DB connection. */
+    private var isOnline = true
+
+    // ── Throttle constants ────────────────────────────────────────────────────
+    /** Minimum time between location writes (10 seconds → ≤360 writes/hour). */
+    private val THROTTLE_INTERVAL_MS = 10_000L
+    /** Minimum movement required before writing a new position (50 m). */
+    private val MIN_DISTANCE_KM = 0.05
+
+    // ── Per-session tracking state ────────────────────────────────────────────
+    private var lastLocationUpdateTime = 0L
+    private var lastProviderLat = 0.0
+    private var lastProviderLng = 0.0
 
     private val _uiState = MutableStateFlow(ProviderPanelUiState())
     val uiState: StateFlow<ProviderPanelUiState> = _uiState.asStateFlow()
@@ -39,6 +59,16 @@ class ProviderPanelViewModel : ViewModel() {
 
         val providerId = auth.currentUser?.uid ?: return
         _uiState.update { it.copy(isLoading = true, message = null) }
+
+        // Monitor Firebase connectivity so location updates can be queued offline.
+        stateManager.startMonitoring { online ->
+            isOnline = online
+            if (online && !offlineQueue.isEmpty()) {
+                offlineQueue.drainAll().forEach { update ->
+                    writeLocationToDatabase(update.bookingId, update.latitude, update.longitude, update.timestamp)
+                }
+            }
+        }
 
         // Track whether each query has delivered its first result so that isLoading
         // is cleared only after both listeners have responded at least once.
@@ -133,12 +163,42 @@ class ProviderPanelViewModel : ViewModel() {
     fun updateLiveProviderLocation(bookingId: String, latitude: Double, longitude: Double) {
         if (_uiState.value.liveTrackingBookingId != bookingId) return
 
+        val now = System.currentTimeMillis()
+
+        // Time throttle: skip if fewer than 10 seconds have elapsed since the last write.
+        if (now - lastLocationUpdateTime < THROTTLE_INTERVAL_MS) return
+
+        // Distance throttle: skip if the provider hasn't moved at least 50 m.
+        if (lastLocationUpdateTime != 0L) {
+            val movedKm = LocationUtility.haversineDistance(
+                lastProviderLat, lastProviderLng, latitude, longitude
+            )
+            if (movedKm < MIN_DISTANCE_KM) return
+        }
+
+        lastLocationUpdateTime = now
+        lastProviderLat = latitude
+        lastProviderLng = longitude
+
+        val update = TrackingUpdate(bookingId = bookingId, latitude = latitude, longitude = longitude, timestamp = now)
+        if (isOnline) {
+            writeLocationToDatabase(bookingId, latitude, longitude, now)
+        } else {
+            offlineQueue.enqueue(update)
+        }
+    }
+
+    /**
+     * Writes a minimal location payload (lat, lng, updatedAt) to the Realtime Database.
+     * Static provider fields (name, phone, rating) live in Firestore and are not duplicated here.
+     */
+    private fun writeLocationToDatabase(bookingId: String, latitude: Double, longitude: Double, timestamp: Long) {
         realtimeDb.getReference("tracking/$bookingId")
             .updateChildren(
                 mapOf(
                     "providerLat" to latitude,
                     "providerLng" to longitude,
-                    "status" to BookingStatus.ON_THE_WAY.value
+                    "updatedAt" to timestamp
                 )
             )
     }
@@ -171,10 +231,7 @@ class ProviderPanelViewModel : ViewModel() {
                     status = BookingStatus.ACCEPTED.value,
                     eta = 0,
                     lat = Double.NaN,
-                    lng = Double.NaN,
-                    providerName = providerName,
-                    providerPhone = providerPhone,
-                    providerRating = 4.8
+                    lng = Double.NaN
                 )
                 _uiState.update { it.copy(message = "Booking accepted") }
             }
@@ -268,6 +325,12 @@ class ProviderPanelViewModel : ViewModel() {
             }
     }
 
+    /**
+     * Creates the initial tracking document when a provider accepts a booking.
+     * Only writes the identity fields needed by security rules plus the initial status/ETA.
+     * Static provider details (name, phone, rating) are stored in Firestore and are not
+     * duplicated in the Realtime Database.
+     */
     private fun writeTracking(
         bookingId: String,
         userId: String,
@@ -275,11 +338,9 @@ class ProviderPanelViewModel : ViewModel() {
         status: String,
         eta: Int,
         lat: Double,
-        lng: Double,
-        providerName: String,
-        providerPhone: String,
-        providerRating: Double
+        lng: Double
     ) {
+        val now = System.currentTimeMillis()
         realtimeDb.getReference("tracking/$bookingId").setValue(
             mapOf(
                 "userId" to userId,
@@ -288,15 +349,14 @@ class ProviderPanelViewModel : ViewModel() {
                 "eta" to eta,
                 "providerLat" to lat,
                 "providerLng" to lng,
-                "providerName" to providerName,
-                "providerPhone" to providerPhone,
-                "providerRating" to providerRating
+                "updatedAt" to now
             )
         )
     }
 
     override fun onCleared() {
         super.onCleared()
+        stateManager.stopMonitoring()
         pendingBookingsListener?.remove()
         activeBookingsListener?.remove()
         _uiState.update { it.copy(liveTrackingBookingId = null) }

@@ -767,26 +767,7 @@ exports.onReviewCreated = onDocumentCreated("reviews/{reviewId}", async (event) 
   );
 });
 
-// ─── cleanupStaleTracking (scheduled) ────────────────────────────────────────
 
-exports.cleanupStaleTracking = onSchedule("every 24 hours", async () => {
-  const cutoff = Date.now() - 24 * 60 * 60 * 1000; // 24 hours ago
-  const db = admin.database();
-  const trackingRef = db.ref("tracking");
-
-  const snapshot = await trackingRef.orderByChild("updatedAt").endAt(cutoff).get();
-  if (!snapshot.exists()) {
-    console.log("No stale tracking entries to clean up.");
-    return;
-  }
-
-  const deletions = [];
-  snapshot.forEach((child) => {
-    deletions.push(child.ref.remove());
-  });
-
-  await Promise.all(deletions);
-  console.log(`Deleted ${deletions.length} stale tracking entries.`);
 });
 
 // ─── cleanupExpiredNotifications (scheduled) ─────────────────────────────────

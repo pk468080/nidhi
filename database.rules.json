@@ -24,6 +24,9 @@
         },
         "updatedAt": {
           ".validate": "newData.isNumber()"
+        },
+        "$other": {
+          ".validate": false
         }
       }
     }

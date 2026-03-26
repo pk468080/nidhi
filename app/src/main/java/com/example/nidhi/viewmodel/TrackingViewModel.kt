@@ -121,13 +121,7 @@ class TrackingViewModel : ViewModel() {
                     val updated = current.copy(
                         status = updatedStatus,
                         providerLat = newLat,
-                        providerLng = newLng,
-                        providerName = snapshot.child("providerName").getValue(String::class.java)
-                            ?: current.providerName,
-                        providerPhone = snapshot.child("providerPhone").getValue(String::class.java)
-                            ?: current.providerPhone,
-                        providerRating = snapshot.child("providerRating").getValue(Double::class.java)
-                            ?: current.providerRating
+                        providerLng = newLng
                     )
                     recalculateEtaAndDistance(updated)
                 }
