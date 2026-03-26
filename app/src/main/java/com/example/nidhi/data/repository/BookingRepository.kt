@@ -1,6 +1,7 @@
 package com.example.nidhi.data.repository
 
 import com.example.nidhi.data.model.Booking
+import com.example.nidhi.data.model.BookingPageResult
 import com.example.nidhi.data.model.BookingStatus
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
@@ -16,6 +17,8 @@ class BookingRepository {
 
     companion object {
         const val PAGE_SIZE = 10
+        const val CUSTOMER_PAGE_SIZE = 20
+        const val PROVIDER_PAGE_SIZE = 50
     }
 
     fun createBooking(booking: Booking, onResult: (Boolean, String?) -> Unit) {
@@ -161,5 +164,70 @@ class BookingRepository {
                 } ?: emptyList()
                 onChanged(bookings)
             }
+    }
+
+    /**
+     * Cursor-based paginated fetch of a user's bookings from bookings_lite.
+     * Fetches [pageSize]+1 documents to determine whether more pages exist.
+     */
+    fun getBookingsPage(
+        userId: String,
+        cursor: DocumentSnapshot? = null,
+        pageSize: Int = CUSTOMER_PAGE_SIZE,
+        onResult: (BookingPageResult) -> Unit
+    ) {
+        var query: Query = firestore.collection("bookings_lite")
+            .whereEqualTo("userId", userId)
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .limit((pageSize + 1).toLong())
+
+        if (cursor != null) {
+            query = query.startAfter(cursor)
+        }
+
+        query.get()
+            .addOnSuccessListener { snapshot ->
+                val docs = snapshot.documents
+                onResult(
+                    BookingPageResult(
+                        bookings = docs.take(pageSize).mapNotNull { it.toObject(Booking::class.java) },
+                        lastVisible = if (docs.size > pageSize) docs[pageSize - 1] else docs.lastOrNull(),
+                        hasMore = docs.size > pageSize
+                    )
+                )
+            }
+            .addOnFailureListener { onResult(BookingPageResult(emptyList(), null, false)) }
+    }
+
+    /**
+     * Cursor-based paginated fetch of pending bookings from bookings_lite.
+     * Used by the provider panel to load pending requests in pages.
+     */
+    fun getPendingBookingsPage(
+        cursor: DocumentSnapshot? = null,
+        pageSize: Int = PROVIDER_PAGE_SIZE,
+        onResult: (BookingPageResult) -> Unit
+    ) {
+        var query: Query = firestore.collection("bookings_lite")
+            .whereEqualTo("status", BookingStatus.PENDING.value)
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .limit((pageSize + 1).toLong())
+
+        if (cursor != null) {
+            query = query.startAfter(cursor)
+        }
+
+        query.get()
+            .addOnSuccessListener { snapshot ->
+                val docs = snapshot.documents
+                onResult(
+                    BookingPageResult(
+                        bookings = docs.take(pageSize).mapNotNull { it.toObject(Booking::class.java) },
+                        lastVisible = if (docs.size > pageSize) docs[pageSize - 1] else docs.lastOrNull(),
+                        hasMore = docs.size > pageSize
+                    )
+                )
+            }
+            .addOnFailureListener { onResult(BookingPageResult(emptyList(), null, false)) }
     }
 }

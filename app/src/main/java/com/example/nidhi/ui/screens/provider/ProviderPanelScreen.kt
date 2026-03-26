@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.LocationOn
@@ -183,12 +185,32 @@ fun ProviderPanelScreen(navController: NavController) {
             if (state.pendingBookings.isEmpty()) {
                 item { EmptyState("No pending requests") }
             } else {
-                items(state.pendingBookings) { booking ->
+                itemsIndexed(state.pendingBookings) { index, booking ->
+                    // Trigger next page of pending bookings only at the last item.
+                    if (index == state.pendingBookings.size - 1 && state.hasPendingMore) {
+                        LaunchedEffect(state.pendingBookings.size) {
+                            viewModel.loadMorePendingBookings()
+                        }
+                    }
                     ProviderBookingCard(
                         booking = booking,
                         onAccept = { viewModel.acceptBooking(booking) },
                         onReject = { viewModel.rejectBooking(booking.bookingId) }
                     )
+                }
+
+                // Pending bookings loading indicator.
+                if (state.isPendingLoadingMore) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(AppSpacing.default),
+                            contentAlignment = androidx.compose.ui.Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    }
                 }
             }
 

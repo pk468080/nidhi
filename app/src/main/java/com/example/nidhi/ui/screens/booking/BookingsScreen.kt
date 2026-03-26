@@ -4,10 +4,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.nidhi.data.model.Booking
 import com.example.nidhi.data.model.BookingStatus
@@ -17,30 +20,14 @@ import com.example.nidhi.ui.theme.Error
 import com.example.nidhi.ui.theme.Info
 import com.example.nidhi.ui.theme.Success
 import com.example.nidhi.ui.theme.Warning
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
+import com.example.nidhi.viewmodel.BookingListViewModel
 
 @Composable
 fun BookingsScreen(navController: NavController) {
 
-    val firestore = FirebaseFirestore.getInstance()
-    val userId = FirebaseAuth.getInstance().currentUser?.uid
-
-    var bookings by remember { mutableStateOf(listOf<Booking>()) }
-
-    LaunchedEffect(Unit) {
-        firestore.collection("bookings_lite")
-            .whereEqualTo("userId", userId)
-            .orderBy("timestamp", Query.Direction.DESCENDING)
-            .limit(50)
-            .addSnapshotListener { snapshot, _ ->
-                snapshot?.let {
-                    bookings = it.documents
-                        .mapNotNull { doc -> doc.toObject(Booking::class.java) }
-                }
-            }
-    }
+    val viewModel: BookingListViewModel = viewModel()
+    val state by viewModel.paginationState.collectAsState()
+    val listState = rememberLazyListState()
 
     Column(
         modifier = Modifier
@@ -55,10 +42,10 @@ fun BookingsScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(AppSpacing.large))
 
-        if (bookings.isEmpty()) {
+        if (!state.isLoading && state.items.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxWidth().padding(AppSpacing.xxxLarge),
-                contentAlignment = androidx.compose.ui.Alignment.Center
+                contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "No bookings yet",
@@ -67,11 +54,55 @@ fun BookingsScreen(navController: NavController) {
                 )
             }
         } else {
+            // Trigger next page load when scrolled within 5 items of the list end.
+            val shouldLoadNext by remember {
+                derivedStateOf {
+                    val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+                    lastVisible >= state.items.size - 5
+                }
+            }
+            LaunchedEffect(shouldLoadNext) {
+                if (shouldLoadNext) viewModel.loadNextPage()
+            }
+
             LazyColumn(
+                state = listState,
                 verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
             ) {
-                items(bookings) { booking ->
+                items(state.items) { booking ->
                     BookingListCard(booking = booking, navController = navController)
+                }
+
+                // Bottom loading indicator while next page is being fetched.
+                if (state.isLoading) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(AppSpacing.default),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                }
+
+                // End-of-list indicator once all pages are loaded.
+                if (!state.hasMore && state.items.isNotEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(AppSpacing.default),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "No more bookings",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
         }
