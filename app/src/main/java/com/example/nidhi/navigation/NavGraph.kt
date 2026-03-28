@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.navigation.compose.*
+import com.example.nidhi.ui.screens.auth.ForgotPasswordScreen
 import com.example.nidhi.ui.screens.auth.LoginScreen
 import com.example.nidhi.ui.screens.auth.OTPVerificationScreen
 import com.example.nidhi.ui.screens.auth.RegisterScreen
@@ -113,6 +114,10 @@ fun NavGraph(deepLinkBookingId: String? = null) {
             val bookingId = backStackEntry.arguments?.getString("bookingId") ?: ""
             ReviewScreen(bookingId = bookingId, navController = navController)
         }
+        composable(Routes.FORGOT_PASSWORD) {
+            ForgotPasswordScreen(navController)
+        }
+
         composable(Routes.EDIT_PROFILE) {
             EditProfileScreen(navController = navController)
         }

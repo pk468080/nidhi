@@ -109,6 +109,18 @@ class AuthViewModel : ViewModel() {
         }
     }
 
+    /* Password reset state */
+    var isResettingPassword by mutableStateOf(false)
+        private set
+
+    fun sendPasswordReset(email: String, onResult: (Boolean, String?) -> Unit) {
+        isResettingPassword = true
+        repository.sendPasswordResetEmail(email) { success, message ->
+            isResettingPassword = false
+            onResult(success, message)
+        }
+    }
+
     /** Clears the session-expired flag after the app has handled the event. */
     fun clearSessionExpired() {
         _sessionExpired.value = false

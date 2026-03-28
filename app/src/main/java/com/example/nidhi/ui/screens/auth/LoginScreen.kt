@@ -305,7 +305,16 @@ fun LoginScreen(navController: NavController) {
 
                 }
 
-                Spacer(modifier = Modifier.height(AppSpacing.large))
+                if (loginMethod == "email") {
+                    TextButton(
+                        onClick = { navController.navigate(Routes.FORGOT_PASSWORD) },
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        Text("Forgot Password?")
+                    }
+                } else {
+                    Spacer(modifier = Modifier.height(AppSpacing.large))
+                }
 
                 /* Login / Get OTP Button */
 
