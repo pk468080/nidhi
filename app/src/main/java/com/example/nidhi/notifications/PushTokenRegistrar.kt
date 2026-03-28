@@ -43,39 +43,3 @@ object PushTokenRegistrar {
 }
 
 
-private const val TAG = "PushTokenRegistrar"
-
-object PushTokenRegistrar {
-
-    fun registerCurrentTokenIfLoggedIn() {
-        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
-
-        FirebaseMessaging.getInstance().token
-            .addOnSuccessListener { token ->
-                if (token.isBlank()) return@addOnSuccessListener
-                saveToken(userId, token)
-            }
-            .addOnFailureListener { error ->
-                Log.w(TAG, "Failed to fetch FCM token", error)
-            }
-    }
-
-    fun saveToken(userId: String, token: String) {
-        FirebaseFirestore.getInstance()
-            .collection("users")
-            .document(userId)
-            .collection("devices")
-            .document(token)
-            .set(
-                mapOf(
-                    "token" to token,
-                    "platform" to "android",
-                    "updatedAt" to System.currentTimeMillis()
-                )
-            )
-            .addOnFailureListener { error ->
-                Log.w(TAG, "Failed to store FCM token", error)
-            }
-    }
-}
-
