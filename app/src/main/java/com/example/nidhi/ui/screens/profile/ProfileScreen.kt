@@ -100,6 +100,16 @@ fun ProfileScreen(onLogout: () -> Unit, navController: NavController? = null) {
             }
 
             OutlinedButton(
+                onClick = { navController.navigate(Routes.PROVIDER_PANEL) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Icon(Icons.Default.Work, contentDescription = null)
+                Spacer(modifier = Modifier.width(AppSpacing.small))
+                Text("Provider Panel")
+            }
+
+            OutlinedButton(
                 onClick = { navController.navigate(Routes.FLOW_CHECKLIST) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.medium

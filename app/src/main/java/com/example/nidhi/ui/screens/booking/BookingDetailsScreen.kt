@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.navigation.NavController
 import com.example.nidhi.data.model.Booking
 import com.example.nidhi.data.model.BookingStatus
+import com.example.nidhi.data.repository.BookingRepository
 import com.example.nidhi.navigation.Routes
 import com.example.nidhi.ui.theme.AppSpacing
 import com.example.nidhi.ui.theme.Error
@@ -25,6 +26,7 @@ import com.example.nidhi.ui.theme.Success
 import com.example.nidhi.ui.theme.Warning
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,9 +36,14 @@ fun BookingDetailsScreen(
 ) {
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     val firestore = FirebaseFirestore.getInstance()
+    val bookingRepository = remember { BookingRepository() }
 
     var booking by remember { mutableStateOf<Booking?>(null) }
     var isLoading by remember { mutableStateOf(true) }
+    var isCancelling by remember { mutableStateOf(false) }
+    var showCancelDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(bookingId) {
         if (bookingId.isBlank()) {
@@ -53,7 +60,39 @@ fun BookingDetailsScreen(
             }
     }
 
+    if (showCancelDialog) {
+        AlertDialog(
+            onDismissRequest = { showCancelDialog = false },
+            title = { Text("Cancel Booking") },
+            text = { Text("Are you sure you want to cancel this booking?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showCancelDialog = false
+                        isCancelling = true
+                        bookingRepository.cancelBooking(bookingId) { success ->
+                            isCancelling = false
+                            if (!success) {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("Failed to cancel booking. Please try again.")
+                                }
+                            }
+                        }
+                    }
+                ) {
+                    Text("Yes, Cancel")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCancelDialog = false }) {
+                    Text("Keep Booking")
+                }
+            }
+        )
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Booking Details") },
@@ -210,6 +249,27 @@ fun BookingDetailsScreen(
                                 Icon(Icons.Default.HourglassEmpty, contentDescription = null)
                             }
                         )
+                        Spacer(modifier = Modifier.height(AppSpacing.small))
+                        OutlinedButton(
+                            onClick = { showCancelDialog = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isCancelling,
+                            shape = MaterialTheme.shapes.small,
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
+                            )
+                        ) {
+                            if (isCancelling) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Icon(Icons.Default.Cancel, contentDescription = null)
+                                Spacer(modifier = Modifier.width(AppSpacing.small))
+                                Text("Cancel Booking")
+                            }
+                        }
                     }
 
                 } ?: run {

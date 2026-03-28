@@ -16,9 +16,10 @@ import com.example.nidhi.ui.screens.main.MainScreen
 import com.example.nidhi.ui.screens.payment.PaymentScreen
 import com.example.nidhi.ui.screens.payment.TransactionHistoryScreen
 import com.example.nidhi.ui.screens.profile.EditProfileScreen
+import com.example.nidhi.ui.screens.provider.ProviderPanelScreen
 import com.example.nidhi.ui.screens.services.SearchScreen
 import com.example.nidhi.ui.screens.services.ServiceDetailsScreen
-import com.example.nidhi.ui.theme.SplashScreen
+import com.example.nidhi.ui.screens.splash.SplashScreen
 import com.example.nidhi.ui.screens.tracking.TrackingScreen
 
 @Composable
@@ -120,6 +121,10 @@ fun NavGraph(deepLinkBookingId: String? = null) {
 
         composable(Routes.EDIT_PROFILE) {
             EditProfileScreen(navController = navController)
+        }
+
+        composable(Routes.PROVIDER_PANEL) {
+            ProviderPanelScreen(navController = navController)
         }
     }
 }

@@ -19,4 +19,5 @@ object Routes {
     const val FLOW_CHECKLIST = "flow_checklist"
     const val REVIEW = "review"
     const val FORGOT_PASSWORD = "forgot_password"
+    const val PROVIDER_PANEL = "provider_panel"
 }
