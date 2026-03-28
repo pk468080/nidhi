@@ -23,6 +23,7 @@ import com.example.nidhi.ui.theme.AppSpacing
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.userProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -43,6 +44,7 @@ fun EditProfileScreen(navController: NavController) {
     var isLoading by remember { mutableStateOf(true) }
     var isSaving by remember { mutableStateOf(false) }
     var nameError by remember { mutableStateOf<String?>(null) }
+    var phoneError by remember { mutableStateOf<String?>(null) }
 
     // Load existing Firestore data on open
     LaunchedEffect(currentUser?.uid) {
@@ -67,9 +69,30 @@ fun EditProfileScreen(navController: NavController) {
 
     fun saveProfile() {
         nameError = null
-        if (displayName.isBlank()) {
-            nameError = "Name cannot be empty"
-            return
+        phoneError = null
+        val trimmedName = displayName.trim()
+        when {
+            trimmedName.isBlank() -> {
+                nameError = "Name cannot be empty"
+                return
+            }
+            trimmedName.length < 2 -> {
+                nameError = "Name must be at least 2 characters"
+                return
+            }
+            trimmedName.length > 100 -> {
+                nameError = "Name cannot exceed 100 characters"
+                return
+            }
+        }
+        val trimmedPhone = phone.trim()
+        if (trimmedPhone.isNotEmpty()) {
+            val digits = trimmedPhone.filter { it.isDigit() }
+            val isValid = digits.length == 10 || (digits.length == 12 && digits.startsWith("91"))
+            if (!isValid) {
+                phoneError = "Enter a valid 10-digit phone number (or include country code +91)"
+                return
+            }
         }
         isSaving = true
         scope.launch {
@@ -78,15 +101,16 @@ fun EditProfileScreen(navController: NavController) {
 
                 // 1. Update Firebase Auth display name
                 val profileUpdates = userProfileChangeRequest {
-                    displayName = displayName.trim()
+                    displayName = trimmedName
                 }
                 currentUser.updateProfile(profileUpdates).await()
 
-                // 2. Update Firestore document
-                val updates = mutableMapOf<String, Any>("name" to displayName.trim())
-                if (phone.isNotBlank()) updates["phone"] = phone.trim()
+                // 2. Update Firestore document (merge so existing fields are preserved)
+                val updates = mutableMapOf<String, Any>("name" to trimmedName)
+                if (trimmedPhone.isNotEmpty()) updates["phone"] = trimmedPhone
 
-                firestore.collection("users").document(uid).update(updates).await()
+                firestore.collection("users").document(uid)
+                    .set(updates, SetOptions.merge()).await()
 
                 snackbarHostState.showSnackbar("Profile updated successfully")
                 navController.popBackStack()
@@ -196,11 +220,13 @@ fun EditProfileScreen(navController: NavController) {
 
             OutlinedTextField(
                 value = phone,
-                onValueChange = { phone = it },
+                onValueChange = { phone = it; phoneError = null },
                 label = { Text("Phone number") },
                 leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 placeholder = { Text("+91 XXXXX XXXXX") },
+                isError = phoneError != null,
+                supportingText = phoneError?.let { msg -> { Text(msg) } },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = MaterialTheme.shapes.medium
