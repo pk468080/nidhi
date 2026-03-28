@@ -233,6 +233,20 @@ class AuthRepository {
         }.addOnFailureListener { onDone() }
     }
 
+    fun sendPasswordResetEmail(email: String, onResult: (Boolean, String?) -> Unit) {
+        auth.sendPasswordResetEmail(email)
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    Log.d("AUTH", "Password reset email sent to $email")
+                    onResult(true, null)
+                } else {
+                    val message = task.exception?.message ?: "Failed to send reset email"
+                    Log.d("AUTH", "Password reset error: $message")
+                    onResult(false, message)
+                }
+            }
+    }
+
     fun getCurrentUser() = auth.currentUser
 
     fun logout() {
