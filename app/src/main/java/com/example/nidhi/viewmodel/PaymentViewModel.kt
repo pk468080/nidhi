@@ -1,5 +1,7 @@
 package com.example.nidhi.viewmodel
 
+import android.os.Handler
+import android.os.Looper
 import androidx.lifecycle.ViewModel
 import com.example.nidhi.data.model.Payment
 import com.example.nidhi.data.model.PaymentMethod
@@ -9,6 +11,7 @@ import com.example.nidhi.payment.RazorpayPaymentHandler
 import com.example.nidhi.payment.RazorpayUtility
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,6 +33,13 @@ class PaymentViewModel : ViewModel() {
     val paymentResult: StateFlow<PaymentResult?> = _paymentResult.asStateFlow()
 
     /**
+     * True while waiting for the Razorpay webhook to confirm the payment server-side.
+     * The UI should show a "Verifying payment…" message during this phase.
+     */
+    private val _awaitingWebhook = MutableStateFlow(false)
+    val awaitingWebhook: StateFlow<Boolean> = _awaitingWebhook.asStateFlow()
+
+    /**
      * Emits the Razorpay checkout options when the user taps "Pay".
      * PaymentScreen observes this and calls Checkout.open() on the Activity.
      * Reset to null by calling [onCheckoutLaunched] after the checkout is opened.
@@ -41,6 +51,13 @@ class PaymentViewModel : ViewModel() {
     private var pendingPayment: Payment? = null
     private var pendingBookingId: String? = null
 
+    /** Firestore snapshot listener waiting for the webhook to mark the booking paid. */
+    private var bookingListener: ListenerRegistration? = null
+
+    /** Handler used to post a timeout if the webhook does not arrive within 2 minutes. */
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var webhookTimeoutRunnable: Runnable? = null
+
     init {
         RazorpayPaymentHandler.registerCallbacks(
             onSuccess = { paymentId -> onRazorpaySuccess(paymentId) },
@@ -51,6 +68,7 @@ class PaymentViewModel : ViewModel() {
     override fun onCleared() {
         super.onCleared()
         RazorpayPaymentHandler.unregisterCallbacks()
+        stopListeningForPaymentConfirmation()
     }
 
     fun loadTransactions() {
@@ -92,6 +110,8 @@ class PaymentViewModel : ViewModel() {
         val options = RazorpayUtility.buildCheckoutOptions(
             amount = amount,
             serviceName = serviceName,
+            bookingId = bookingId,
+            userId = userId,
             userName = user.displayName ?: "",
             userEmail = user.email ?: "",
             userPhone = user.phoneNumber ?: ""
@@ -112,38 +132,73 @@ class PaymentViewModel : ViewModel() {
         _paymentResult.value = PaymentResult.Failure(message)
     }
 
-    /** Called indirectly via [RazorpayPaymentHandler] from MainActivity.onPaymentSuccess. */
+    /**
+     * Called indirectly via [RazorpayPaymentHandler] from MainActivity.onPaymentSuccess.
+     *
+     * The client does NOT update Firestore directly. Instead, it starts listening to the
+     * booking document. The Razorpay webhook (server-side) will verify the signature and
+     * mark the booking as paid. When the listener detects paymentStatus == "paid", the
+     * UI is notified via [PaymentResult.Success].
+     */
     private fun onRazorpaySuccess(razorpayPaymentId: String) {
-        val payment = pendingPayment?.copy(
-            status = PaymentStatus.PAID.value,
-            transactionId = razorpayPaymentId
-        ) ?: return
         val bookingId = pendingBookingId ?: return
-
         pendingPayment = null
         pendingBookingId = null
 
-        // TODO: For production, verify the Razorpay payment signature via a Cloud Function
-        // (see: https://razorpay.com/docs/payments/webhooks/validate-webhook-signature/)
-        // before marking the booking as PAID to prevent client-side manipulation.
-        repository.savePayment(payment) { success, _ ->
-            if (success) {
-                firestore.collection("bookings").document(bookingId)
-                    .update("paymentStatus", PaymentStatus.PAID.value)
-                    .addOnCompleteListener { task ->
-                        _isLoading.value = false
-                        _paymentResult.value = if (task.isSuccessful) {
-                            PaymentResult.Success(razorpayPaymentId)
-                        } else {
-                            PaymentResult.Failure("Payment captured, but booking status sync failed. Please refresh.")
-                        }
-                    }
-            } else {
-                _isLoading.value = false
-                _paymentResult.value =
-                    PaymentResult.Failure("Failed to save payment. Please contact support.")
+        _awaitingWebhook.value = true
+        listenForPaymentConfirmation(bookingId, razorpayPaymentId)
+    }
+
+    /**
+     * Attaches a Firestore snapshot listener to the booking document.
+     * Emits [PaymentResult.Success] once the server-side webhook marks
+     * [paymentStatus] as "paid".
+     * A 2-minute timeout is scheduled; if the webhook has not arrived by then,
+     * a failure is emitted so the UI does not remain stuck indefinitely.
+     */
+    private fun listenForPaymentConfirmation(bookingId: String, razorpayPaymentId: String) {
+        stopListeningForPaymentConfirmation()
+        bookingListener = firestore.collection("bookings").document(bookingId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    stopListeningForPaymentConfirmation()
+                    _isLoading.value = false
+                    _awaitingWebhook.value = false
+                    _paymentResult.value =
+                        PaymentResult.Failure("Payment verification failed. Please check your booking status.")
+                    return@addSnapshotListener
+                }
+                if (snapshot == null || !snapshot.exists()) return@addSnapshotListener
+
+                val paymentStatus = snapshot.getString("paymentStatus")
+                if (paymentStatus == PaymentStatus.PAID.value) {
+                    stopListeningForPaymentConfirmation()
+                    _isLoading.value = false
+                    _awaitingWebhook.value = false
+                    _paymentResult.value = PaymentResult.Success(razorpayPaymentId)
+                }
             }
+
+        // Schedule a 2-minute timeout in case the webhook never arrives.
+        val timeoutRunnable = Runnable {
+            stopListeningForPaymentConfirmation()
+            _isLoading.value = false
+            _awaitingWebhook.value = false
+            _paymentResult.value = PaymentResult.Failure(
+                "Payment confirmation is taking longer than expected. " +
+                    "Please check your booking status or contact support."
+            )
         }
+        webhookTimeoutRunnable = timeoutRunnable
+        mainHandler.postDelayed(timeoutRunnable, WEBHOOK_TIMEOUT_MS)
+    }
+
+    /** Removes the Firestore booking listener and cancels any pending timeout. */
+    private fun stopListeningForPaymentConfirmation() {
+        webhookTimeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+        webhookTimeoutRunnable = null
+        bookingListener?.remove()
+        bookingListener = null
     }
 
     /** Called indirectly via [RazorpayPaymentHandler] from MainActivity.onPaymentError. */
@@ -151,6 +206,7 @@ class PaymentViewModel : ViewModel() {
         pendingPayment = null
         pendingBookingId = null
         _isLoading.value = false
+        _awaitingWebhook.value = false
         _paymentResult.value =
             PaymentResult.Failure(RazorpayUtility.getErrorMessage(errorCode, errorDescription))
     }
@@ -164,3 +220,5 @@ sealed class PaymentResult {
     data class Success(val transactionId: String) : PaymentResult()
     data class Failure(val message: String) : PaymentResult()
 }
+
+private const val WEBHOOK_TIMEOUT_MS = 2 * 60 * 1000L // 2 minutes

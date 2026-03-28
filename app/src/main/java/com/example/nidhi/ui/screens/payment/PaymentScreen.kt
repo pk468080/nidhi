@@ -36,6 +36,7 @@ fun PaymentScreen(
 ) {
     val viewModel: PaymentViewModel = viewModel()
     val isLoading by viewModel.isLoading.collectAsState()
+    val awaitingWebhook by viewModel.awaitingWebhook.collectAsState()
     val paymentResult by viewModel.paymentResult.collectAsState()
     val checkoutOptions by viewModel.checkoutOptions.collectAsState()
 
@@ -208,6 +209,26 @@ fun PaymentScreen(
                     Text(
                         text = "Pay ₹${"%.0f".format(amount)}",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+            }
+
+            if (awaitingWebhook) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(14.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(AppSpacing.extraSmall))
+                    Text(
+                        text = "Verifying payment, please wait…",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
