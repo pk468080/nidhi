@@ -10,6 +10,9 @@ object RazorpayUtility {
      *
      * @param amount       Amount in INR (converted to paise internally).
      * @param serviceName  Name of the booked service (used in the checkout description).
+     * @param bookingId    Booking document ID, passed as a note so the server-side webhook
+     *                     can link the payment back to the correct booking.
+     * @param userId       Firebase UID of the paying user, passed as a note for the webhook.
      * @param userName     Display name shown in the prefill section.
      * @param userEmail    Email shown in the prefill section (may be empty).
      * @param userPhone    Phone number shown in the prefill section (may be empty).
@@ -17,6 +20,8 @@ object RazorpayUtility {
     fun buildCheckoutOptions(
         amount: Double,
         serviceName: String,
+        bookingId: String,
+        userId: String,
         userName: String = "",
         userEmail: String = "",
         userPhone: String = ""
@@ -29,6 +34,11 @@ object RazorpayUtility {
             if (userPhone.isNotBlank()) put("contact", userPhone)
         }
 
+        val notes = JSONObject().apply {
+            put("bookingId", bookingId)
+            put("userId", userId)
+        }
+
         return JSONObject().apply {
             put("name", RazorpayConfig.COMPANY_NAME)
             put(
@@ -38,6 +48,7 @@ object RazorpayUtility {
             put("currency", RazorpayConfig.CURRENCY)
             put("amount", amountInPaise)
             put("prefill", prefill)
+            put("notes", notes)
         }
     }
 

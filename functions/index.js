@@ -726,8 +726,6 @@ exports.initiatePayment = onCall(async (request) => {
 
 // ─── onPaymentSuccess (HTTP webhook) ────────────────────────────────────────
 
-const crypto = require("crypto");
-
 exports.onPaymentSuccess = onRequest(async (req, res) => {
 
   if (req.method !== "POST") {
@@ -736,8 +734,17 @@ exports.onPaymentSuccess = onRequest(async (req, res) => {
   }
 
   const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    console.error("RAZORPAY_WEBHOOK_SECRET is not configured.");
+    res.status(500).send("Server configuration error");
+    return;
+  }
 
   const signature = req.headers["x-razorpay-signature"];
+  if (!signature) {
+    res.status(400).send("Missing signature header");
+    return;
+  }
 
   const expectedSignature = crypto
     .createHmac("sha256", webhookSecret)
@@ -749,59 +756,113 @@ exports.onPaymentSuccess = onRequest(async (req, res) => {
     return;
   }
 
-  const payment = req.body.payload.payment.entity;
+  const payment = req.body?.payload?.payment?.entity;
+  if (!payment) {
+    res.status(400).send("Missing payment entity in payload");
+    return;
+  }
 
   const paymentId = payment.id;
-  const bookingId = payment.notes.bookingId;
-  const userId = payment.notes.userId;
+  const bookingId = payment.notes?.bookingId;
+  const userId = payment.notes?.userId;
+  const amount = typeof payment.amount === "number" ? payment.amount / 100 : 0;
+
+  if (!paymentId) {
+    res.status(400).send("Missing paymentId");
+    return;
+  }
 
   if (!bookingId) {
-    res.status(400).send("Missing bookingId");
+    res.status(400).send("Missing bookingId in payment notes");
     return;
   }
 
-  const bookingRef = admin.firestore().collection("bookings").doc(bookingId);
+  const db = admin.firestore();
+  const bookingRef = db.collection("bookings").doc(bookingId);
+  // Use paymentId as document key to enable atomic idempotency check.
+  const paymentRef = db.collection("payments").doc(paymentId);
 
-  const bookingSnap = await bookingRef.get();
+  try {
+    let alreadyProcessed = false;
 
-  if (!bookingSnap.exists) {
-    res.status(404).send("Booking not found");
-    return;
+    await db.runTransaction(async (tx) => {
+      const [paymentSnap, bookingSnap] = await Promise.all([
+        tx.get(paymentRef),
+        tx.get(bookingRef)
+      ]);
+
+      // Idempotency: if payment record already exists, skip reprocessing.
+      if (paymentSnap.exists) {
+        alreadyProcessed = true;
+        return;
+      }
+
+      if (!bookingSnap.exists) {
+        throw Object.assign(new Error("Booking not found"), { code: "not_found" });
+      }
+
+      const bookingData = bookingSnap.data();
+
+      // If booking is already marked paid (e.g. by a previous webhook delivery),
+      // record the payment doc for idempotency but do not re-trigger assignment.
+      const alreadyPaid = bookingData.paymentStatus === "paid";
+
+      tx.update(bookingRef, {
+        paymentStatus: "paid",
+        transactionId: paymentId,
+        updatedAt: Date.now()
+      });
+
+      tx.set(paymentRef, {
+        paymentId,
+        bookingId,
+        userId: userId || bookingData.userId || "",
+        amount,
+        status: "paid",
+        createdAt: Date.now()
+      });
+
+      // Store alreadyPaid flag so the post-transaction block can decide
+      // whether to trigger assignment.
+      alreadyProcessed = alreadyPaid;
+    });
+
+    if (alreadyProcessed) {
+      res.status(200).json({ success: true, duplicate: true });
+      return;
+    }
+
+    // Trigger provider assignment outside the transaction (reads providers collection).
+    const bookingSnap = await bookingRef.get();
+    if (!bookingSnap.exists) {
+      res.status(200).json({ success: true });
+      return;
+    }
+    const bookingData = bookingSnap.data();
+
+    if (!bookingData.assignedProviderId) {
+      const rejectedIds = Array.isArray(bookingData.rejectedProviders)
+        ? bookingData.rejectedProviders
+        : [];
+      const attemptNum = bookingData.assignmentAttempt || 1;
+      await assignProvider(
+        bookingId,
+        { ...bookingData, paymentStatus: "paid", transactionId: paymentId },
+        rejectedIds,
+        attemptNum
+      );
+    }
+
+    res.status(200).json({ success: true });
+
+  } catch (err) {
+    if (err.code === "not_found") {
+      res.status(404).send("Booking not found");
+      return;
+    }
+    console.error("onPaymentSuccess error:", err);
+    res.status(500).send("Internal server error");
   }
-
-  const bookingData = bookingSnap.data();
-
-  await bookingRef.update({
-    paymentStatus: "paid",
-    transactionId: paymentId,
-    updatedAt: Date.now()
-  });
-
-  await admin.firestore().collection("payments").add({
-    bookingId,
-    paymentId,
-    userId,
-    status: "paid",
-    createdAt: Date.now()
-  });
-
-  if (!bookingData.assignedProviderId) {
-
-    const rejectedIds = Array.isArray(bookingData.rejectedProviders)
-      ? bookingData.rejectedProviders
-      : [];
-
-    const attemptNum = bookingData.assignmentAttempt || 1;
-
-    await assignProvider(
-      bookingId,
-      { ...bookingData, paymentStatus: "paid", transactionId: paymentId },
-      rejectedIds,
-      attemptNum
-    );
-  }
-
-  res.status(200).json({ success: true });
 
 });
 
