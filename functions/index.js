@@ -791,12 +791,6 @@ exports.onPaymentSuccess = onRequest(async (req, res) => {
         tx.get(bookingRef)
       ]);
 
-      // Idempotency: if payment record already exists, skip reprocessing.
-      if (paymentSnap.exists) {
-        alreadyProcessed = true;
-        return;
-      }
-
       if (!bookingSnap.exists) {
         throw Object.assign(new Error("Booking not found"), { code: "not_found" });
       }
@@ -804,26 +798,37 @@ exports.onPaymentSuccess = onRequest(async (req, res) => {
       const bookingData = bookingSnap.data();
 
       // If booking is already marked paid (e.g. by a previous webhook delivery),
-      // record the payment doc for idempotency but do not re-trigger assignment.
+      // still merge the server-authoritative payment fields but skip reassignment.
       const alreadyPaid = bookingData.paymentStatus === "paid";
 
-      tx.update(bookingRef, {
-        paymentStatus: "paid",
-        transactionId: paymentId,
-        updatedAt: Date.now()
-      });
+      // Only update the booking if it is not already paid.
+      if (!alreadyPaid) {
+        tx.update(bookingRef, {
+          paymentStatus: "paid",
+          transactionId: paymentId,
+          updatedAt: Date.now()
+        });
+      }
 
-      tx.set(paymentRef, {
+      // Merge the server-authoritative payment fields.
+      // Using set+merge so that any fields the client already wrote (e.g. method,
+      // serviceName) are preserved, while the webhook adds/overwrites authoritative
+      // fields (amount, status, transactionId, timestamp).
+      // "timestamp" matches the Kotlin Payment model field name used by toObject().
+      const paymentData = {
         paymentId,
         bookingId,
         userId: userId || bookingData.userId || "",
+        serviceName: bookingData.serviceName || "",
         amount,
         status: "paid",
-        createdAt: Date.now()
-      });
+        transactionId: paymentId,
+        timestamp: paymentSnap.exists
+          ? (paymentSnap.data().timestamp || Date.now())  // preserve client-written timestamp
+          : Date.now()
+      };
+      tx.set(paymentRef, paymentData, { merge: true });
 
-      // Store alreadyPaid flag so the post-transaction block can decide
-      // whether to trigger assignment.
       alreadyProcessed = alreadyPaid;
     });
 
