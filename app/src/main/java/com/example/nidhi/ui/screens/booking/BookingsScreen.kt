@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,6 +23,7 @@ import com.example.nidhi.ui.theme.Success
 import com.example.nidhi.ui.theme.Warning
 import com.example.nidhi.viewmodel.BookingListViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookingsScreen(navController: NavController) {
 
@@ -42,65 +44,71 @@ fun BookingsScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(AppSpacing.large))
 
-        if (!state.isLoading && state.items.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxWidth().padding(AppSpacing.xxxLarge),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "No bookings yet",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        } else {
-            // Trigger next page load when scrolled within 5 items of the list end.
-            val shouldLoadNext by remember {
-                derivedStateOf {
-                    val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
-                    lastVisible >= state.items.size - 5
+        PullToRefreshBox(
+            isRefreshing = state.isLoading && state.items.isEmpty(),
+            onRefresh = { viewModel.refresh() },
+            modifier = Modifier.fillMaxSize()
+        ) {
+            if (!state.isLoading && state.items.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No bookings yet",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-            }
-            LaunchedEffect(shouldLoadNext) {
-                if (shouldLoadNext) viewModel.loadNextPage()
-            }
-
-            LazyColumn(
-                state = listState,
-                verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
-            ) {
-                items(state.items) { booking ->
-                    BookingListCard(booking = booking, navController = navController)
-                }
-
-                // Bottom loading indicator while next page is being fetched.
-                if (state.isLoading) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(AppSpacing.default),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator()
-                        }
+            } else {
+                // Trigger next page load when scrolled within 5 items of the list end.
+                val shouldLoadNext by remember {
+                    derivedStateOf {
+                        val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+                        lastVisible >= state.items.size - 5
                     }
                 }
+                LaunchedEffect(shouldLoadNext) {
+                    if (shouldLoadNext) viewModel.loadNextPage()
+                }
 
-                // End-of-list indicator once all pages are loaded.
-                if (!state.hasMore && state.items.isNotEmpty()) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(AppSpacing.default),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "No more bookings",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                LazyColumn(
+                    state = listState,
+                    verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
+                ) {
+                    items(state.items) { booking ->
+                        BookingListCard(booking = booking, navController = navController)
+                    }
+
+                    // Bottom loading indicator while next page is being fetched.
+                    if (state.isLoading) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(AppSpacing.default),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator()
+                            }
+                        }
+                    }
+
+                    // End-of-list indicator once all pages are loaded.
+                    if (!state.hasMore && state.items.isNotEmpty()) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(AppSpacing.default),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "No more bookings",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }

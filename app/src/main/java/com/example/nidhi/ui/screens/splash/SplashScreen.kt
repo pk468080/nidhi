@@ -19,28 +19,34 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.nidhi.navigation.Routes
 import com.example.nidhi.ui.theme.*
-import com.google.firebase.auth.FirebaseAuth
+import com.example.nidhi.viewmodel.SplashDestination
+import com.example.nidhi.viewmodel.SplashViewModel
 import kotlinx.coroutines.delay
 
 @Composable
 fun SplashScreen(navController: NavController) {
 
-    // ── Existing auth logic — untouched ──────────────────────────────────────
-    val auth = FirebaseAuth.getInstance()
+    val viewModel: SplashViewModel = viewModel()
+    val destination by viewModel.destination.collectAsState()
 
     LaunchedEffect(Unit) {
         delay(2500)
-        if (auth.currentUser != null) {
-            navController.navigate(Routes.HOME) {
+        viewModel.resolveDestination()
+    }
+
+    LaunchedEffect(destination) {
+        when (destination) {
+            is SplashDestination.Home -> navController.navigate(Routes.HOME) {
                 popUpTo(Routes.SPLASH) { inclusive = true }
             }
-        } else {
-            navController.navigate(Routes.LOGIN) {
+            is SplashDestination.Login -> navController.navigate(Routes.LOGIN) {
                 popUpTo(Routes.SPLASH) { inclusive = true }
             }
+            SplashDestination.Waiting -> Unit
         }
     }
 

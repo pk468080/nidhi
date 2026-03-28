@@ -1,7 +1,7 @@
 package com.example.nidhi.data.repository
 
+import com.example.nidhi.firebase.FirestoreCollections
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.ListenerRegistration
 
 /**
  * Repository for reading provider and service data from Firestore.
@@ -14,40 +14,43 @@ class ServiceRepository {
     private val firestore = FirebaseFirestore.getInstance()
 
     /**
-     * Returns a real-time snapshot listener for the `providers` collection,
-     * optionally filtered by category. Results are delivered as raw maps so
-     * the caller can deserialise into its own model class.
+     * One-time fetch of available providers, optionally filtered by category.
+     * Uses a single [get()] call instead of a continuous snapshot listener to
+     * avoid unbounded Firestore read costs for data that changes infrequently.
      */
-    fun observeAvailableProviders(
+    fun getAvailableProviders(
         category: String? = null,
-        onChanged: (List<Map<String, Any>>) -> Unit
-    ): ListenerRegistration {
-        var query = firestore.collection("providers")
+        onResult: (List<Map<String, Any>>) -> Unit
+    ) {
+        var query = firestore.collection(FirestoreCollections.PROVIDERS)
             .whereEqualTo("isAvailable", true)
         if (!category.isNullOrBlank()) {
             query = query.whereEqualTo("category", category)
         }
-        return query.addSnapshotListener { snapshot, _ ->
-            val providers = snapshot?.documents?.mapNotNull { it.data } ?: emptyList()
-            onChanged(providers)
-        }
+        query.get()
+            .addOnSuccessListener { snapshot ->
+                onResult(snapshot.documents.mapNotNull { it.data })
+            }
+            .addOnFailureListener { onResult(emptyList()) }
     }
 
     /**
-     * Returns a real-time snapshot listener for the `services` collection,
-     * optionally filtered by category.
+     * One-time fetch of services, optionally filtered by category.
+     * Uses a single [get()] call instead of a continuous snapshot listener to
+     * avoid unbounded Firestore read costs for data that changes infrequently.
      */
-    fun observeServices(
+    fun getServices(
         category: String? = null,
-        onChanged: (List<Map<String, Any>>) -> Unit
-    ): ListenerRegistration {
-        var query = firestore.collection("services").limit(50)
+        onResult: (List<Map<String, Any>>) -> Unit
+    ) {
+        var query = firestore.collection(FirestoreCollections.SERVICES).limit(50)
         if (!category.isNullOrBlank()) {
             query = query.whereEqualTo("category", category)
         }
-        return query.addSnapshotListener { snapshot, _ ->
-            val services = snapshot?.documents?.mapNotNull { it.data } ?: emptyList()
-            onChanged(services)
-        }
+        query.get()
+            .addOnSuccessListener { snapshot ->
+                onResult(snapshot.documents.mapNotNull { it.data })
+            }
+            .addOnFailureListener { onResult(emptyList()) }
     }
 }
