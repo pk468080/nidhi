@@ -18,6 +18,25 @@ class PaymentRepository {
     }
 
     /**
+     * Saves (or merges) a payment record using [documentId] as the Firestore document key.
+     *
+     * Using the Razorpay payment ID as the document ID makes the write idempotent:
+     * calling this multiple times (e.g. client + webhook) is safe because
+     * [SetOptions.merge] only adds/updates fields rather than replacing the document.
+     */
+    fun savePaymentById(
+        documentId: String,
+        payment: Payment,
+        onResult: (Boolean, String?) -> Unit
+    ) {
+        val paymentWithId = payment.copy(paymentId = documentId)
+        firestore.collection("payments").document(documentId)
+            .set(paymentWithId, com.google.firebase.firestore.SetOptions.merge())
+            .addOnSuccessListener { onResult(true, documentId) }
+            .addOnFailureListener { onResult(false, null) }
+    }
+
+    /**
      * One-time fetch of the user's payment history (most recent 50 records).
      * Replaced the previous addSnapshotListener to avoid continuous read charges.
      */

@@ -1,7 +1,15 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.google.services)
+}
+
+// Load developer-local keys from local.properties (excluded from VCS).
+val localProperties = Properties().also { props ->
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { props.load(it) }
 }
 
 android {
@@ -16,6 +24,15 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Razorpay Key ID injected at build time from local.properties.
+        // Fallback to an empty string so the app compiles even without the file;
+        // PaymentScreen guards against a blank key at runtime.
+        buildConfigField(
+            "String",
+            "RAZORPAY_KEY_ID",
+            "\"${localProperties.getProperty("RAZORPAY_KEY_ID", "")}\""
+        )
     }
 
     buildTypes {
@@ -36,6 +53,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()

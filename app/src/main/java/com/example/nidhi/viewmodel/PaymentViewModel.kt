@@ -135,13 +135,32 @@ class PaymentViewModel : ViewModel() {
     /**
      * Called indirectly via [RazorpayPaymentHandler] from MainActivity.onPaymentSuccess.
      *
-     * The client does NOT update Firestore directly. Instead, it starts listening to the
-     * booking document. The Razorpay webhook (server-side) will verify the signature and
-     * mark the booking as paid. When the listener detects paymentStatus == "paid", the
-     * UI is notified via [PaymentResult.Success].
+     * Immediately persists the payment record to Firestore using the Razorpay payment ID
+     * as the document key (idempotent with the server-side webhook). Then starts listening
+     * to the booking document so the UI is notified once the webhook marks the booking paid.
      */
     private fun onRazorpaySuccess(razorpayPaymentId: String) {
         val bookingId = pendingBookingId ?: return
+        val payment = pendingPayment
+
+        // Persist the payment record right away with all client-known fields (method,
+        // serviceName, etc.) using the Razorpay payment ID as the document key.
+        // The server-side webhook will merge any additional server-known fields.
+        if (payment != null) {
+            val completedPayment = payment.copy(
+                transactionId = razorpayPaymentId,
+                status = PaymentStatus.PAID.value
+            )
+            repository.savePaymentById(razorpayPaymentId, completedPayment) { success, _ ->
+                if (!success) {
+                    android.util.Log.w(
+                        "PaymentViewModel",
+                        "Failed to persist payment record locally for $razorpayPaymentId"
+                    )
+                }
+            }
+        }
+
         pendingPayment = null
         pendingBookingId = null
 
