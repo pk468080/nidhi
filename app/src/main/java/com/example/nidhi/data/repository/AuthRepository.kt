@@ -2,6 +2,7 @@ package com.example.nidhi.data.repository
 
 import android.app.Activity
 import android.util.Log
+import com.example.nidhi.firebase.FirestoreCollections
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.PhoneAuthCredential
@@ -151,7 +152,7 @@ class AuthRepository {
             "role" to "customer",
             "createdAt" to System.currentTimeMillis()
         )
-        firestore.collection("users")
+        firestore.collection(FirestoreCollections.USERS)
             .document(uid)
             // merge = true so we never overwrite an existing role (e.g. "provider")
             .set(userData, SetOptions.merge())
@@ -181,7 +182,7 @@ class AuthRepository {
             "role" to "customer",
             "createdAt" to System.currentTimeMillis()
         )
-        firestore.collection("users")
+        firestore.collection(FirestoreCollections.USERS)
             .document(uid)
             .set(userData, SetOptions.merge())
             .addOnCompleteListener { task ->
@@ -200,7 +201,7 @@ class AuthRepository {
      * Returns the role string ("customer" or "provider") via [onResult].
      */
     fun loadUserRole(uid: String, onResult: (String) -> Unit) {
-        firestore.collection("users").document(uid)
+        firestore.collection(FirestoreCollections.USERS).document(uid)
             .get()
             .addOnSuccessListener { doc ->
                 val role = doc.getString("role") ?: "customer"
@@ -217,7 +218,7 @@ class AuthRepository {
      * Uses merge so existing fields (especially "role") are preserved.
      */
     private fun ensureUserDocumentExists(uid: String, email: String, onDone: () -> Unit) {
-        val ref = firestore.collection("users").document(uid)
+        val ref = firestore.collection(FirestoreCollections.USERS).document(uid)
         ref.get().addOnSuccessListener { doc ->
             if (!doc.exists()) {
                 val data = hashMapOf(

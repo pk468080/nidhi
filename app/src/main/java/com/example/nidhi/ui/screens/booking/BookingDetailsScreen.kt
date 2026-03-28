@@ -25,7 +25,6 @@ import com.example.nidhi.ui.theme.Info
 import com.example.nidhi.ui.theme.Success
 import com.example.nidhi.ui.theme.Warning
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -35,7 +34,6 @@ fun BookingDetailsScreen(
     navController: NavController
 ) {
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-    val firestore = FirebaseFirestore.getInstance()
     val bookingRepository = remember { BookingRepository() }
 
     var booking by remember { mutableStateOf<Booking?>(null) }
@@ -45,19 +43,18 @@ fun BookingDetailsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(bookingId) {
-        if (bookingId.isBlank()) {
-            isLoading = false
-            booking = null
-            return@LaunchedEffect
-        }
-
-        firestore.collection("bookings").document(bookingId)
-            .addSnapshotListener { snapshot, _ ->
+    // Use DisposableEffect so the Firestore listener is cleaned up when the
+    // screen leaves the composition, preventing a billing / memory leak.
+    if (bookingId.isBlank()) {
+        isLoading = false
+    } else {
+        DisposableEffect(bookingId) {
+            val registration = bookingRepository.observeBookingById(bookingId) { loaded ->
                 isLoading = false
-                val loadedBooking = snapshot?.toObject(Booking::class.java)
-                booking = loadedBooking?.takeIf { it.userId == userId }
+                booking = loaded?.takeIf { it.userId == userId }
             }
+            onDispose { registration.remove() }
+        }
     }
 
     if (showCancelDialog) {
