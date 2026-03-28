@@ -79,6 +79,16 @@ fun ProfileScreen(onLogout: () -> Unit, navController: NavController? = null) {
 
         // Navigation options
         if (navController != null) {
+            // ── Edit Profile (NEW) ──────────────────────────────────────────
+            OutlinedButton(
+                onClick = { navController.navigate(Routes.EDIT_PROFILE) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Icon(Icons.Default.Edit, contentDescription = null)
+                Spacer(modifier = Modifier.width(AppSpacing.small))
+                Text("Edit Profile")
+            }
             OutlinedButton(
                 onClick = { navController.navigate(Routes.TRANSACTIONS) },
                 modifier = Modifier.fillMaxWidth(),

@@ -165,7 +165,7 @@ fun PaymentScreen(
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
             )
 
-            PaymentMethod.values().forEach { method ->
+            PaymentMethod.entries.forEach { method ->
                 PaymentMethodCard(
                     method = method,
                     isSelected = selectedMethod == method,

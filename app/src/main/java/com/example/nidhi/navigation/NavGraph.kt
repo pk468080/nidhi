@@ -14,6 +14,7 @@ import com.example.nidhi.ui.screens.debug.FlowChecklistScreen
 import com.example.nidhi.ui.screens.main.MainScreen
 import com.example.nidhi.ui.screens.payment.PaymentScreen
 import com.example.nidhi.ui.screens.payment.TransactionHistoryScreen
+import com.example.nidhi.ui.screens.profile.EditProfileScreen
 import com.example.nidhi.ui.screens.services.SearchScreen
 import com.example.nidhi.ui.screens.services.ServiceDetailsScreen
 import com.example.nidhi.ui.theme.SplashScreen
@@ -111,6 +112,9 @@ fun NavGraph(deepLinkBookingId: String? = null) {
         ) { backStackEntry ->
             val bookingId = backStackEntry.arguments?.getString("bookingId") ?: ""
             ReviewScreen(bookingId = bookingId, navController = navController)
+        }
+        composable(Routes.EDIT_PROFILE) {
+            EditProfileScreen(navController = navController)
         }
     }
 }

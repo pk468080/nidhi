@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const admin = require("firebase-admin");
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
@@ -725,38 +726,57 @@ exports.initiatePayment = onCall(async (request) => {
 
 // ─── onPaymentSuccess (HTTP webhook) ────────────────────────────────────────
 
+const crypto = require("crypto");
+
 exports.onPaymentSuccess = onRequest(async (req, res) => {
+
   if (req.method !== "POST") {
     res.status(405).send("Method not allowed");
     return;
   }
 
-  // In production, verify the Razorpay webhook signature here:
-  // const expectedSignature = crypto
-  //   .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET)
-  //   .update(JSON.stringify(req.body))
-  //   .digest("hex");
-  // if (expectedSignature !== req.headers["x-razorpay-signature"]) {
-  //   res.status(400).send("Invalid signature");
-  //   return;
-  // }
+  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
 
-  const { bookingId, paymentId, userId } = req.body;
-  if (!bookingId || !paymentId || !userId) {
-    res.status(400).send("Missing required fields");
+  const signature = req.headers["x-razorpay-signature"];
+
+  const expectedSignature = crypto
+    .createHmac("sha256", webhookSecret)
+    .update(JSON.stringify(req.body))
+    .digest("hex");
+
+  if (expectedSignature !== signature) {
+    res.status(400).send("Invalid signature");
     return;
   }
 
-  let bookingData = null;
-  await admin.firestore().runTransaction(async (tx) => {
-    const bookingRef = admin.firestore().collection("bookings").doc(bookingId);
-    const snap = await tx.get(bookingRef);
-    if (!snap.exists) return;
-    bookingData = snap.data();
-    tx.update(bookingRef, { paymentStatus: "paid", transactionId: paymentId });
+  const payment = req.body.payload.payment.entity;
+
+  const paymentId = payment.id;
+  const bookingId = payment.notes.bookingId;
+  const userId = payment.notes.userId;
+
+  if (!bookingId) {
+    res.status(400).send("Missing bookingId");
+    return;
+  }
+
+  const bookingRef = admin.firestore().collection("bookings").doc(bookingId);
+
+  const bookingSnap = await bookingRef.get();
+
+  if (!bookingSnap.exists) {
+    res.status(404).send("Booking not found");
+    return;
+  }
+
+  const bookingData = bookingSnap.data();
+
+  await bookingRef.update({
+    paymentStatus: "paid",
+    transactionId: paymentId,
+    updatedAt: Date.now()
   });
 
-  // Create an immutable payment record.
   await admin.firestore().collection("payments").add({
     bookingId,
     paymentId,
@@ -765,15 +785,14 @@ exports.onPaymentSuccess = onRequest(async (req, res) => {
     createdAt: Date.now()
   });
 
-  await sendNotificationToUser(userId, "Payment confirmed", "Your payment was received successfully.", {
-    bookingId,
-    type: "payment_confirmed"
-  });
+  if (!bookingData.assignedProviderId) {
 
-  // Trigger provider assignment using data already read in the transaction above.
-  if (bookingData && !bookingData.assignedProviderId) {
-    const rejectedIds = Array.isArray(bookingData.rejectedProviders) ? bookingData.rejectedProviders : [];
+    const rejectedIds = Array.isArray(bookingData.rejectedProviders)
+      ? bookingData.rejectedProviders
+      : [];
+
     const attemptNum = bookingData.assignmentAttempt || 1;
+
     await assignProvider(
       bookingId,
       { ...bookingData, paymentStatus: "paid", transactionId: paymentId },
@@ -783,6 +802,7 @@ exports.onPaymentSuccess = onRequest(async (req, res) => {
   }
 
   res.status(200).json({ success: true });
+
 });
 
 // ─── onReviewCreated ─────────────────────────────────────────────────────────

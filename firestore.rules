@@ -65,16 +65,14 @@ service cloud.firestore {
       allow write: if false; // Cloud Functions only
     }
 
-    match /payments/{paymentId} {
-      allow create: if isSignedIn()
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.amount is number
-        && request.resource.data.amount > 0
-        && isValidPaymentStatus(request.resource.data.status);
-      allow read: if isSignedIn()
-        && (resource.data.userId == request.auth.uid || isProvider());
-      allow update, delete: if false; // Immutable audit trail
-    }
+        match /payments/{paymentId} {
+          allow create: if isSignedIn()
+            && request.resource.data.userId == request.auth.uid;
+          allow read: if isSignedIn()
+            && (resource.data.userId == request.auth.uid || isProvider());
+          allow update, delete: if false; // Immutable audit trail
+        }
+
 
     match /users/{userId} {
       allow read: if isOwner(userId) || isProvider();
