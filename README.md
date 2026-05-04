@@ -1,4 +1,4 @@
-i build this project woth the help of AI tools like ChatGPT, Claude, Github copilot
+i build this project with the help of AI tools like ChatGPT, Claude, Github copilot
 
 # Nidhi
 
