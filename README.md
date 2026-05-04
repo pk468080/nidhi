@@ -1,4 +1,4 @@
-i build this project with the help of AI tools like ChatGPT, Claude, Github copilot
+i build this project with the help of AI tools like ChatGPT, Claude, Github copilot. i used android studio ide for editing code, chatgpt and other agent for writing code i used github copilot for debuging code and anther agent i gave prompt for specific task then copy code and paste  it in ide and run the code if i faced any error so first i checked manually for fix that error and if i was not able to fix that so i use ide interegeted ai for fixing that.
 
 # Nidhi
 
